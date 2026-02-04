@@ -1292,7 +1292,7 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
               {project.image_urls.map((url, index) => (
                 <img
                   key={index}
-                  src={url}
+                  src={getImageUrl(url)}
                   alt={`${project.name} ${index + 1}`}
                   style={styles.image}
                 />

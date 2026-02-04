@@ -1156,7 +1156,7 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
                   <div style={styles.imagePreview}>
                     <p style={styles.helpText}>Current photo:</p>
                     <div style={styles.imagePreviewWrapper}>
-                      <img src={yarn.yarn_photo_url} alt="Current yarn photo" style={styles.previewImage} />
+                      <img src={getImageUrl(yarn.yarn_photo_url)} alt="Current yarn photo" style={styles.previewImage} />
                       <button
                         type="button"
                         onClick={handleRemoveYarnPhoto}
@@ -1198,7 +1198,7 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
                   <div style={styles.imagePreview}>
                     <p style={styles.helpText}>Current photo:</p>
                     <div style={styles.imagePreviewWrapper}>
-                      <img src={yarn.label_photo_url} alt="Current label photo" style={styles.previewImage} />
+                      <img src={getImageUrl(yarn.label_photo_url)} alt="Current label photo" style={styles.previewImage} />
                       <button
                         type="button"
                         onClick={handleRemoveLabelPhoto}

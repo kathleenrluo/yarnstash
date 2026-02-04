@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getStash, toggleYarnFavorite, getYarnWeightOptions, getColorOptions } from '../services/api';
+import { getStash, toggleYarnFavorite, getYarnWeightOptions, getColorOptions, getImageUrl } from '../services/api';
 import Card from '../components/common/Card';
 import FavoriteButton from '../components/common/FavoriteButton';
 import ColorSelect from '../components/common/ColorSelect';
@@ -504,7 +504,7 @@ const StashPage = () => {
                 <div style={styles.imageContainer}>
                   {entry.yarn.yarn_photo_url ? (
                     <img 
-                      src={entry.yarn.yarn_photo_url} 
+                      src={getImageUrl(entry.yarn.yarn_photo_url)} 
                       alt={`${entry.yarn.brand_name} ${entry.yarn.yarn_name}`}
                       style={styles.image}
                     />

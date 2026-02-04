@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getProjects, toggleProjectFavorite } from '../services/api';
+import { getProjects, toggleProjectFavorite, getImageUrl } from '../services/api';
 import Card from '../components/common/Card';
 import FavoriteButton from '../components/common/FavoriteButton';
 import Tag from '../components/common/Tag';
@@ -379,7 +379,7 @@ const ProjectsPage = () => {
                 <div style={styles.imageContainer}>
                   {project.image_urls && project.image_urls.length > 0 ? (
                     <img 
-                      src={project.image_urls[project.primary_image_index || 0]} 
+                      src={getImageUrl(project.image_urls[project.primary_image_index || 0])} 
                       alt={project.name}
                       style={styles.image}
                     />

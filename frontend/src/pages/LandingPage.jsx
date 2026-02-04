@@ -81,6 +81,17 @@ const LandingPage = () => {
       border: `1px solid ${theme.colors.borderNeutral}`,
       cursor: 'pointer',
       transition: theme.transitions.normal,
+      textAlign: 'left',
+    },
+    featureHeader: {
+      textAlign: 'center',
+      margin: 0,
+      marginBottom: theme.spacing.sm,
+    },
+    featureParagraph: {
+      textAlign: 'left',
+      margin: 0,
+      marginTop: theme.spacing.sm,
     },
     featureHover: {
       backgroundColor: theme.colors.surfaceHover,
@@ -283,8 +294,8 @@ const LandingPage = () => {
             onMouseEnter={handleFeatureMouseEnter}
             onMouseLeave={handleFeatureMouseLeave}
           >
-            <h3>Stash Management</h3>
-            <p>Keep track of all your yarn with detailed information and photos.</p>
+            <h3 style={styles.featureHeader}>Stash Management</h3>
+            <p style={styles.featureParagraph}>Track your yarn collection with smart autocomplete, auto-fill for duplicate yarns, and photo uploads. Filter by favorite, weight, color, brand, or material, and search across all properties. Stash quantities automatically update as you use yarn in projects.</p>
           </div>
           <div 
             style={styles.feature}
@@ -292,8 +303,8 @@ const LandingPage = () => {
             onMouseEnter={handleFeatureMouseEnter}
             onMouseLeave={handleFeatureMouseLeave}
           >
-            <h3>Project Tracking</h3>
-            <p>Record your crochet and knit projects with yarn usage tracking.</p>
+            <h3 style={styles.featureHeader}>Project Tracking</h3>
+            <p style={styles.featureParagraph}>Record your crochet and knitting projects with yarn usage tracking that automatically deducts from stash. Care instructions are calculated based on project materials, and you can organize with tags and favorites. Cross-navigate between projects and their yarns.</p>
           </div>
           <div 
             style={styles.feature}
@@ -301,8 +312,8 @@ const LandingPage = () => {
             onMouseEnter={handleFeatureMouseEnter}
             onMouseLeave={handleFeatureMouseLeave}
           >
-            <h3>Calculator</h3>
-            <p>Estimate yarn needs for your projects based on stitch counts.</p>
+            <h3 style={styles.featureHeader}>Calculator</h3>
+            <p style={styles.featureParagraph}>Estimate yarn needs for your projects based on stitch counts and pattern dimensions. Check if you have enough yarn in your stash before starting, and get accurate estimates to avoid running out mid-project.</p>
           </div>
         </div>
         

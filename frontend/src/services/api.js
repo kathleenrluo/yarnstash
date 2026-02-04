@@ -514,16 +514,29 @@ export const uploadImages = async (files) => {
  */
 export const getImageUrl = (path) => {
   if (!path) return null;
-  // If it's already a full URL, return as is
+  // If it's already a full URL, check if it's localhost (from dev) and convert to relative
   if (path.startsWith('http://') || path.startsWith('https://')) {
+    // If it's a localhost URL (from development), convert to relative path
+    if (path.includes('localhost:8000') || path.includes('127.0.0.1:8000')) {
+      // Extract the path part (e.g., /uploads/filename.jpg)
+      try {
+        const url = new URL(path);
+        return url.pathname; // Returns /uploads/filename.jpg
+      } catch (e) {
+        // If URL parsing fails, try to extract path manually
+        const match = path.match(/\/uploads\/[^\/]+$/);
+        return match ? match[0] : path;
+      }
+    }
+    // Otherwise, return the full URL as is (external URLs)
     return path;
   }
-  // If it starts with /uploads/, construct URL from API base
+  // If it starts with /uploads/, use as is (already relative)
   if (path.startsWith('/uploads/')) {
-    return `${API_BASE_URL}${path}`;
+    return path;
   }
   // Otherwise, assume it's a relative path and prepend /uploads/
-  return `${API_BASE_URL}/uploads/${path}`;
+  return `/uploads/${path}`;
 };
 
 export default apiClient;

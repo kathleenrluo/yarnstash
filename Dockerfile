@@ -40,5 +40,8 @@ ENV SERVE_STATIC=true
 ENV DEMO_MODE=true
 ENV PORT=8000
 
+# Set working directory to backend
+WORKDIR /app/backend
+
 # Start the server
-CMD cd backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

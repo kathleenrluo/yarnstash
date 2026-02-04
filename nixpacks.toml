@@ -3,14 +3,14 @@ nixPkgs = ["nodejs-18_x", "python312"]
 
 [phases.install]
 cmds = [
-  "cd frontend && npm install --legacy-peer-deps",
-  "cd ../backend && pip install -r requirements.txt"
+  "npm install --legacy-peer-deps --prefix frontend",
+  "pip install -r backend/requirements.txt"
 ]
 
 [phases.build]
 cmds = [
-  "cd frontend && VITE_DEMO_MODE=true npm run build"
+  "VITE_DEMO_MODE=true npm run build --prefix frontend"
 ]
 
 [start]
-cmd = "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --chdir backend"

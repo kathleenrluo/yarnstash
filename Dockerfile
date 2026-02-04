@@ -5,10 +5,14 @@ WORKDIR /app
 
 # Copy frontend files
 COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm install --legacy-peer-deps
+WORKDIR /app/frontend
+RUN npm install --legacy-peer-deps
 
+WORKDIR /app
 COPY frontend ./frontend
-RUN cd frontend && VITE_DEMO_MODE=true npm run build
+WORKDIR /app/frontend
+RUN VITE_DEMO_MODE=true npm run build
+WORKDIR /app
 
 # Python backend stage
 FROM python:3.12-slim
@@ -20,8 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements and install
-COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r ./backend/requirements.txt
 
 # Copy backend code
 COPY backend ./backend

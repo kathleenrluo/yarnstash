@@ -5,6 +5,8 @@ These schemas define the structure of request and response data.
 They provide automatic validation and serialization.
 """
 
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
@@ -129,7 +131,7 @@ class ProjectCreate(ProjectBase):
     date_completed: Optional[str] = Field(None, description="Date completed - can be null, year (e.g., '2024'), month+year (e.g., '2024-03' or 'March 2024'), or full date (e.g., '2024-03-15')")
     image_urls: Optional[List[str]] = None
     primary_image_index: Optional[int] = Field(0, ge=0, description="Index of primary image in image_urls array")
-    yarn_usage: Optional[List[AddYarnUsage]] = Field(None, description="Optional list of yarns to attach to the project during creation")
+    yarn_usage: Optional[List["AddYarnUsage"]] = Field(None, description="Optional list of yarns to attach to the project during creation")
     manual_care_instruction_ids: Optional[List[int]] = Field(None, description="Manual care instruction IDs (overrides computed care instructions from yarns)")
 
 

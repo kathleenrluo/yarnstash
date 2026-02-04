@@ -33,6 +33,9 @@ COPY backend ./backend
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# Copy frontend public assets (carousel images, about-me photo, etc.)
+COPY frontend/public ./frontend/public
+
 # Copy demo database
 COPY backend/yarn_stash_demo.db ./backend/
 

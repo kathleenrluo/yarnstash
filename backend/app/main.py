@@ -79,17 +79,22 @@ app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 if SERVE_STATIC:
     # Path to built frontend (relative to backend/app/main.py)
     frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+    frontend_public = Path(__file__).parent.parent.parent / "frontend" / "public"
     
     if frontend_dist.exists():
         # Mount static files
         app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+        
+        # Mount public directory (for carousel images, about-me photo, etc.)
+        if frontend_public.exists():
+            app.mount("/public", StaticFiles(directory=str(frontend_public)), name="public")
         
         # Serve index.html for all non-API routes (SPA routing)
         # This must be registered LAST so API routes take precedence
         @app.get("/{full_path:path}")
         async def serve_spa(full_path: str):
             # Don't serve index.html for API routes or static files
-            api_paths = ("yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
+            api_paths = ("yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "public", "health")
             if full_path.split("/")[0] in api_paths:
                 return {"error": "Not found"}
             

@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import { formatDateForDisplay } from '../../utils/dateParser';
 import { parseMaterialBreakdown } from '../../utils/materialParser';
+import { isDemoMode } from '../../config/demoMode';
 import { 
   getYarn, 
   getProjectsByYarn, 
@@ -824,24 +825,28 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
   // Prepare header actions for the modal
   const headerActions = yarn && !isEditing ? (
     <>
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          handleEdit();
-        }} 
-        style={styles.editButton}
-      >
-        Edit
-      </button>
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          handleDelete();
-        }} 
-        style={styles.deleteButton}
-      >
-        Delete
-      </button>
+      {!isDemoMode && (
+        <>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit();
+            }} 
+            style={styles.editButton}
+          >
+            Edit
+          </button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }} 
+            style={styles.deleteButton}
+          >
+            Delete
+          </button>
+        </>
+      )}
       <div onClick={(e) => e.stopPropagation()}>
         <FavoriteButton
           isFavorite={yarn.is_favorite}

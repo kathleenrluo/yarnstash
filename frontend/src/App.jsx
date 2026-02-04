@@ -6,6 +6,7 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/common/Navbar';
+import DemoBanner from './components/common/DemoBanner';
 import LandingPage from './pages/LandingPage';
 import StashPage from './pages/StashPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -16,6 +17,7 @@ function App() {
   return (
     <Router>
       <div className="App">
+        <DemoBanner />
         <Navbar />
         <Routes>
           <Route path="/" element={<LandingPage />} />

@@ -12,6 +12,7 @@ import FavoriteButton from './FavoriteButton';
 import Select from './Select';
 import { formatDateForDisplay } from '../../utils/dateParser';
 import { theme } from '../../styles/theme';
+import { isDemoMode } from '../../config/demoMode';
 
 const formatPatternTypeLabel = (patternType) => {
   if (!patternType) return '';
@@ -780,24 +781,28 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
   // Prepare header actions for the modal
   const headerActions = project && !isEditing ? (
     <>
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          handleEdit();
-        }} 
-        style={styles.editButton}
-      >
-        Edit
-      </button>
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          handleDelete();
-        }} 
-        style={styles.deleteButton}
-      >
-        Delete
-      </button>
+      {!isDemoMode && (
+        <>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit();
+            }} 
+            style={styles.editButton}
+          >
+            Edit
+          </button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }} 
+            style={styles.deleteButton}
+          >
+            Delete
+          </button>
+        </>
+      )}
       <div onClick={(e) => e.stopPropagation()}>
         <FavoriteButton
           isFavorite={project.is_favorite}

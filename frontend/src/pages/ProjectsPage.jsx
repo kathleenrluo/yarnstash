@@ -16,6 +16,7 @@ import ProjectDetailModal from '../components/common/ProjectDetailModal';
 import AddProjectForm from '../components/forms/AddProjectForm';
 import { formatDateForDisplay, parseDateForSorting } from '../utils/dateParser';
 import { theme } from '../styles/theme';
+import { isDemoMode } from '../config/demoMode';
 
 const ProjectsPage = () => {
   const navigate = useNavigate();
@@ -252,12 +253,14 @@ const ProjectsPage = () => {
       <div style={styles.content}>
         <div style={styles.header}>
           <h1 style={styles.title}>My Projects</h1>
-          <button 
-            style={styles.addButton}
-            onClick={() => setShowAddForm(true)}
-          >
-            + New Project
-          </button>
+          {!isDemoMode && (
+            <button 
+              style={styles.addButton}
+              onClick={() => setShowAddForm(true)}
+            >
+              + New Project
+            </button>
+          )}
         </div>
 
         {/* Filters and Sort */}
@@ -436,11 +439,13 @@ const ProjectsPage = () => {
       </div>
 
       {/* Add Project Modal */}
-      <AddProjectForm
-        isOpen={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        onSuccess={loadProjects}
-      />
+      {!isDemoMode && (
+        <AddProjectForm
+          isOpen={showAddForm}
+          onClose={() => setShowAddForm(false)}
+          onSuccess={loadProjects}
+        />
+      )}
 
       {/* Project Detail Modal */}
       <ProjectDetailModal

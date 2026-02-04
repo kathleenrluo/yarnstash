@@ -15,6 +15,7 @@ import Select from '../components/common/Select';
 import YarnDetailModal from '../components/common/YarnDetailModal';
 import AddYarnForm from '../components/forms/AddYarnForm';
 import { theme } from '../styles/theme';
+import { isDemoMode } from '../config/demoMode';
 
 const StashPage = () => {
   const navigate = useNavigate();
@@ -347,12 +348,14 @@ const StashPage = () => {
       <div style={styles.content}>
         <div style={styles.header}>
           <h1 style={styles.title}>My Stash</h1>
-          <button 
-            style={styles.addButton}
-            onClick={() => setShowAddForm(true)}
-          >
-            + Add Yarn
-          </button>
+          {!isDemoMode && (
+            <button 
+              style={styles.addButton}
+              onClick={() => setShowAddForm(true)}
+            >
+              + Add Yarn
+            </button>
+          )}
         </div>
 
         {/* Filters and Sort */}
@@ -553,11 +556,13 @@ const StashPage = () => {
       </div>
 
       {/* Add Yarn Modal */}
-      <AddYarnForm
-        isOpen={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        onSuccess={loadStash}
-      />
+      {!isDemoMode && (
+        <AddYarnForm
+          isOpen={showAddForm}
+          onClose={() => setShowAddForm(false)}
+          onSuccess={loadStash}
+        />
+      )}
 
       {/* Yarn Detail Modal */}
       <YarnDetailModal

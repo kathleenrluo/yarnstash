@@ -10,4 +10,6 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
     css: true,
   },
+  // For production builds, ensure proper base path
+  base: '/',
 })

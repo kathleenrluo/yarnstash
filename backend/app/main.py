@@ -8,7 +8,9 @@ All routes are registered here, and the database is initialized.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pathlib import Path
+import os
 from app.models.database import init_db
 from app.api import yarns, stash, projects, options, upload
 
@@ -20,21 +22,34 @@ app = FastAPI(
     redirect_slashes=False,  # Prevent automatic redirects that can break CORS
 )
 
+# Check if we're in production/demo mode (serving static files)
+SERVE_STATIC = os.getenv("SERVE_STATIC", "false").lower() == "true"
+
 # Configure CORS (Cross-Origin Resource Sharing)
 # This allows the React frontend to communicate with the backend
 # IMPORTANT: CORS middleware must be added BEFORE other middleware and routes
+cors_origins = [
+    "http://localhost:3000",  # React default port
+    "http://localhost:5173",  # Vite default port
+    "http://localhost:5174",  # Vite alternate port
+    "http://localhost:5175",  # Vite alternate port
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+]
+
+# Add Railway domain if SERVE_STATIC is true (production)
+if SERVE_STATIC:
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+    if railway_domain:
+        cors_origins.append(f"https://{railway_domain}")
+    # Allow all origins in production for simplicity
+    cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React default port
-        "http://localhost:5173",  # Vite default port
-        "http://localhost:5174",  # Vite alternate port
-        "http://localhost:5175",  # Vite alternate port
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],  # Include PATCH
     allow_headers=["*"],   # Allow all headers
@@ -59,6 +74,29 @@ uploads_dir.mkdir(exist_ok=True)
 # Mount static files for uploads
 # This allows the frontend to access uploaded images via /uploads/filename
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+
+# Serve static frontend files in production/demo mode
+if SERVE_STATIC:
+    # Path to built frontend (relative to backend/app/main.py)
+    frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+    
+    if frontend_dist.exists():
+        # Mount static files
+        app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+        
+        # Serve index.html for all non-API routes (SPA routing)
+        # This must be registered LAST so API routes take precedence
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            # Don't serve index.html for API routes or static files
+            api_paths = ("yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
+            if full_path.split("/")[0] in api_paths:
+                return {"error": "Not found"}
+            
+            index_path = frontend_dist / "index.html"
+            if index_path.exists():
+                return FileResponse(str(index_path))
+            return {"error": "Frontend not built"}
 
 
 @app.on_event("startup")

@@ -40,3 +40,6 @@ Thumbs.db
 
 # Database
 yarn_stash.db
+
+# Demo database (keep this one for deployment - it's read-only)
+!yarn_stash_demo.db

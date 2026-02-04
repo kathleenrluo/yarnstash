@@ -36,6 +36,9 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 # Copy demo database
 COPY backend/yarn_stash_demo.db ./backend/
 
+# Copy uploads directory (images)
+COPY backend/uploads ./backend/uploads
+
 # Expose port
 EXPOSE $PORT
 

@@ -14,15 +14,15 @@ const LandingPage = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const carouselImages = [
-    '/public/carousel-1.JPG',
-    '/public/carousel-2.JPG',
-    '/public/carousel-3.JPG',
-    '/public/carousel-4.JPG',
-    '/public/carousel-5.JPG',
-    '/public/carousel-6.JPG',
-    '/public/carousel-7.JPG',
-    '/public/carousel-8.JPG',
-    '/public/carousel-9.JPG',
+    '/carousel-1.JPG',
+    '/carousel-2.JPG',
+    '/carousel-3.JPG',
+    '/carousel-4.JPG',
+    '/carousel-5.JPG',
+    '/carousel-6.JPG',
+    '/carousel-7.JPG',
+    '/carousel-8.JPG',
+    '/carousel-9.JPG',
   ];
 
   const handleFeatureClick = (path) => {
@@ -322,7 +322,7 @@ const LandingPage = () => {
           <div style={styles.aboutContent} className="about-content-responsive">
             <div style={styles.aboutImageContainer}>
               <img 
-                src="/public/about-me.JPG" 
+                src="/about-me.JPG" 
                 alt="About me" 
                 style={styles.aboutImage}
                 className="about-image-responsive"

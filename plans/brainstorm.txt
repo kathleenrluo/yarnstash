@@ -1,0 +1,21 @@
+the gist of the app is to be a yarn/project tracker as well as a pattern writer in terms of some of the objects/classes i'll want 
+yarn should have properties: brand name, yarn name, name of color, (generalized color for easy sorting, eg colors of the rainbow, this can be workshopped later), 
+grams in a skein, meters in a skein, yarn weight, material breakdown e.g. 50% mohair 20% nylon 30% cashmere, care instructions eg hand wash cold dry flat, 
+total grams in stash (can be 0 but the yarn information is still kept), also a photo of the yarn itself, and its label my projects will include information like 
+yarn used (and how much of each), hook size used (could be multiple but will mostly be one), pattern info (either a link to the pdf i have in my google drive or to a tutorial, 
+but denoted by the name of the pattern) could also be pattern is freehanded, notes for the future, just a place for me to write anything of note, because it include the yarn used, 
+this should have a function to figure out the most restrictive care instruction of the yarn, and that will be the listed care instruction for the garment, 
+also date added/completed, images/videos, etc the pattern making can be fleshed out later but at minimum i want to have some yarn usage calculations, 
+i will do some test swatches because i don't have the values right now, but i want to make a general rule of thumb for the length of yarn for each type of common stitch 
+based on hook size and yarn weight, and I want to be able to generate an estimate of the meters of yarn necessary for a project, and adapt that number to grams of a yarn 
+(easy to measure grams of yarn in real life but not meters so i will be able to check if i have enough yarn in my stash i will have a landing page that will be fleshed out later 
+which will be a bit of an intro to me, so that doesn't need to be worried about just yet, and it will have a nav bar with a stash page, a project page, a calculation page, 
+and later on i will try to implement a pattern making page the pattern making page will likely make use of the stash and the calculations so again i want everything to be very abstracted, 
+very little logical code should exist outside of functions the stash page should have an easy way to add yarn to the stash (the brands that already exist in my stash should attempt to 
+autofill as typed, or just exist as a selection to click when assigning properties to the yarn, i may later want to use computer vision to self populate yarn info from label, but again, 
+that is a stretch goal, but the code should leave space for that possibility, it should also be easy to change properties of my existing stash/add remove quantity, 
+e.g. i have 100g of x yarn, i say i used 36g of it, and it updates to 64g in my stash, OR i can say i have 64g left and that will populate, i should also be able to 
+say i bought one more ball of yarn or i purchased 50g more yarn, and either based on the skein size in the properties or the explicit number i provoided, it should be able update the 
+amount of yarn i have similarly the project page also needs to have easy ways to add projects for both of the above pages, what I'm asking for is an in app way to input this data and 
+store it rather than me doing it through coding or directly accessing the data both projects and yarn 
+should have multiple ways of sorting, for yarn it will be more important, sorting by weight, quantity, color, material, etc

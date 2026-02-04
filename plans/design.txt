@@ -1,0 +1,283 @@
+🧶 Yarn & Project Tracker — Design Document
+1. Purpose & Goals
+
+This application is a local-first web app designed to:
+
+Track yarn stash inventory
+
+Track crochet/knit projects and yarn usage
+
+Perform yarn usage calculations and estimates
+
+Support future pattern creation tools
+
+Be modular, API-driven, and deployable publicly later
+
+Design principles
+
+Logic lives in the backend (no business logic in React)
+
+All state changes go through functions/APIs
+
+Abstraction first: stash, projects, calculations, patterns are independent modules
+
+Future extensibility: CV, ML, public APIs, mobile app
+
+2. High-Level Architecture
+[ React Frontend ]
+        |
+        | REST API (JSON)
+        |
+[ FastAPI Backend ]
+        |
+        | Service Layer (logic)
+        |
+[ Domain Models ] —— [ Calculation Engine ]
+        |
+[ Database (SQLite → Postgres) ]
+
+3. Core Domains (Backend)
+3.1 Yarn Domain
+
+Yarn is information, not inventory.
+
+Yarn Model
+Yarn
+- id
+- brand_name
+- yarn_name
+- color_name
+- generalized_color
+- yarn_weight (e.g. DK, Worsted)
+- material_breakdown (structured percentages)
+- grams_per_skein
+- meters_per_skein
+- care_instructions
+- yarn_photo_url
+- label_photo_url
+- created_at
+
+
+💡 Even if stash quantity is 0, Yarn persists.
+
+3.2 Stash Domain
+
+Inventory is separate from yarn metadata.
+
+StashEntry
+StashEntry
+- id
+- yarn_id
+- total_grams_owned
+- last_updated
+
+Invariants
+
+Stash can only be updated via:
+
+use_yarn()
+
+add_yarn_by_grams()
+
+add_yarn_by_skeins()
+
+No direct mutation allowed elsewhere
+
+This is critical for correctness.
+
+3.3 Project Domain
+Project
+Project
+- id
+- name
+- description
+- notes
+- date_started
+- date_completed
+- hook_sizes (list)
+- pattern_type (pdf | link | freehand)
+- pattern_reference
+- computed_care_instruction
+- images/videos
+
+ProjectYarnUsage (join table)
+ProjectYarnUsage
+- project_id
+- yarn_id
+- grams_used
+
+3.4 Care Instruction Logic
+
+Each yarn has care instructions.
+
+A resolver function computes the most restrictive one:
+
+hand wash cold > gentle machine > machine wash
+dry flat > tumble dry low > tumble dry
+
+
+This function:
+
+Takes a list of yarns
+
+Returns a single garment-safe instruction
+
+Is reusable across projects & patterns
+
+4. Calculation Engine
+
+This is a pure Python module — no DB access.
+
+Responsibilities
+
+Estimate meters used per stitch
+
+Convert meters → grams (per yarn)
+
+Aggregate project yarn requirements
+
+Core Concepts
+Stitch Usage Rule
+(stitch_type, yarn_weight, hook_size)
+→ meters_per_stitch
+
+
+Stored as:
+
+Config table OR
+
+Versioned JSON file
+
+Replaceable later with ML model
+
+Estimation Flow
+Pattern definition
+→ total stitches
+→ total meters
+→ per-yarn grams required
+→ stash sufficiency check
+
+
+This engine must be:
+
+Deterministic
+
+Testable
+
+Independent of UI
+
+5. Pattern Domain (Phase 2+)
+
+Initially:
+
+Pattern is metadata + stitch counts
+
+Later:
+
+Pattern editor
+
+Shape logic
+
+Gauge integration
+
+Smart warnings (“you don’t have enough yarn”)
+
+Pattern module will call:
+
+Stash API
+
+Calculation engine
+
+But never mutate directly.
+
+6. Frontend (React)
+Pages
+Landing Page
+
+Static intro
+
+Future polish
+
+Stash Page
+
+Add/edit yarn
+
+Add/remove stash quantity
+
+Autocomplete brand names
+
+Sort/filter by:
+
+color
+
+weight
+
+material
+
+quantity
+
+Projects Page
+
+Add/edit projects
+
+Assign yarn + grams used
+
+Auto-update stash
+
+Display computed care instructions
+
+Calculator Page
+
+Input stitch counts
+
+Select yarn(s)
+
+Get meter + gram estimates
+
+Check stash sufficiency
+
+Pattern Page (Later)
+
+Pattern drafting
+
+Gauge tools
+
+Auto calculations
+
+7. API Design (Examples)
+POST /yarns
+GET /yarns?color=blue&weight=DK
+
+POST /stash/add
+POST /stash/use
+
+POST /projects
+POST /projects/{id}/use-yarn
+
+POST /calculate/yarn-estimate
+
+
+Frontend never computes — it asks.
+
+8. Database Strategy
+Local
+
+SQLite
+
+Simple migrations
+
+Future
+
+PostgreSQL
+
+Same schema
+
+No logic rewrite
+
+9. Extensibility Hooks (Explicitly Planned)
+Feature	Where it plugs in
+CV label scanning	Yarn creation service
+ML stitch estimation	Calculation engine
+Public calculator	Same API
+Mobile app	Same backend
+Multi-user auth	API middleware

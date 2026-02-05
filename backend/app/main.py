@@ -113,6 +113,10 @@ if SERVE_STATIC:
                 print(f"[STATIC FILE CHECK] Request: {full_path}, Path: {static_file_path}, Exists: {static_file_path.exists()}")
                 
                 if static_file_path.exists() and static_file_path.is_file():
+                    # Verify it's actually a file and get its size
+                    file_size = static_file_path.stat().st_size
+                    print(f"[FILE INFO] {full_path}: size={file_size} bytes, is_file={static_file_path.is_file()}")
+                    
                     # Determine media type based on file extension (case-insensitive)
                     file_ext = Path(full_path).suffix.lower()
                     media_type = None
@@ -127,12 +131,16 @@ if SERVE_STATIC:
                     elif file_ext == '.svg':
                         media_type = 'image/svg+xml'
                     
-                    print(f"[SERVING FILE] {full_path} as {media_type or 'default'}")
+                    if not media_type:
+                        print(f"[WARNING] No media type for {full_path} with extension {file_ext}")
+                    
+                    print(f"[SERVING FILE] {full_path} as {media_type or 'application/octet-stream'}, size={file_size}")
                     # Always set media_type to ensure browser recognizes it as an image
-                    if media_type:
-                        return FileResponse(str(static_file_path), media_type=media_type)
-                    else:
-                        return FileResponse(str(static_file_path))
+                    return FileResponse(
+                        str(static_file_path), 
+                        media_type=media_type or 'application/octet-stream',
+                        headers={"Content-Length": str(file_size)}
+                    )
                 else:
                     # If it looks like a file request (has extension) but file doesn't exist, return 404
                     # Don't serve index.html for missing files

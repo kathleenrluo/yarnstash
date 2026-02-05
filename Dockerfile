@@ -37,6 +37,8 @@ COPY backend ./backend
 
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+# Also copy public folder contents directly to dist (backup in case Vite didn't copy them)
+COPY --from=frontend-builder /app/frontend/public/* ./frontend/dist/ 2>/dev/null || echo "Note: Public files should already be in dist from Vite build"
 
 # Copy frontend public assets (carousel images, about-me photo, etc.)
 COPY frontend/public ./frontend/public

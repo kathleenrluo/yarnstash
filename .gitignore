@@ -47,6 +47,7 @@ backend/backups/
 *.db.backup
 *_backup_*.db
 
-# Uploads (user-uploaded images - keep folder structure but not files)
-backend/uploads/*
-!backend/uploads/.gitkeep
+# Uploads (user-uploaded images)
+# Note: Uploads are tracked on demo branch, but main branch only has .gitkeep
+# backend/uploads/*
+# !backend/uploads/.gitkeep

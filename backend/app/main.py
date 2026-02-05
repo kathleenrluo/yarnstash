@@ -85,33 +85,38 @@ if SERVE_STATIC:
         # Mount static files
         app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
         
-        # Serve static files from dist root and SPA routing
-        # This must be registered LAST so API routes take precedence
-        @app.get("/{filename:path}")
-        async def serve_static_or_spa(filename: str):
-            # Don't serve for API routes (these are handled by routers above)
+        # Mount static files from dist root (Vite copies public/ to dist/ root during build)
+        # This serves files like carousel-1.JPG, about-me.JPG, vite.svg, etc.
+        # We need to mount this carefully to not interfere with API routes
+        # FastAPI processes mounts in order, so this comes after API routers
+        
+        # Serve index.html for SPA routing (catch-all for non-API, non-static routes)
+        # This must be registered LAST so API routes and static files take precedence
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            # Don't serve index.html for API routes or static file paths
             api_paths = ("api", "yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
-            first_segment = filename.split("/")[0] if filename else ""
+            first_segment = full_path.split("/")[0] if full_path else ""
             if first_segment in api_paths:
                 return {"error": "Not found"}
             
             # Check if it's a static file in dist root (like carousel-1.JPG, about-me.JPG, vite.svg)
             # Vite copies public/ files to dist/ root during build
-            if filename:
-                static_file_path = frontend_dist / filename
+            if full_path:
+                static_file_path = frontend_dist / full_path
                 # Check if file exists and is actually a file (not a directory)
                 if static_file_path.exists() and static_file_path.is_file():
                     # Determine media type based on file extension
                     media_type = None
-                    if filename.lower().endswith(('.jpg', '.jpeg')):
+                    if full_path.lower().endswith(('.jpg', '.jpeg')):
                         media_type = 'image/jpeg'
-                    elif filename.lower().endswith('.png'):
+                    elif full_path.lower().endswith('.png'):
                         media_type = 'image/png'
-                    elif filename.lower().endswith('.gif'):
+                    elif full_path.lower().endswith('.gif'):
                         media_type = 'image/gif'
-                    elif filename.lower().endswith('.webp'):
+                    elif full_path.lower().endswith('.webp'):
                         media_type = 'image/webp'
-                    elif filename.lower().endswith('.svg'):
+                    elif full_path.lower().endswith('.svg'):
                         media_type = 'image/svg+xml'
                     
                     return FileResponse(

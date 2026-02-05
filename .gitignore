@@ -42,6 +42,11 @@ Thumbs.db
 yarn_stash.db
 yarn_stash_demo.db
 
+# Backups
+backend/backups/
+*.db.backup
+*_backup_*.db
+
 # Uploads (user-uploaded images - keep folder structure but not files)
 backend/uploads/*
 !backend/uploads/.gitkeep

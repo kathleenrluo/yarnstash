@@ -119,10 +119,15 @@ if SERVE_STATIC:
                     elif full_path.lower().endswith('.svg'):
                         media_type = 'image/svg+xml'
                     
+                    # Log for debugging
+                    print(f"Serving static file: {full_path} from {static_file_path}")
                     return FileResponse(
                         str(static_file_path),
                         media_type=media_type
                     )
+                else:
+                    # Log if file not found for debugging
+                    print(f"Static file not found: {full_path} at {static_file_path}")
             
             # Otherwise, serve index.html for SPA routing
             index_path = frontend_dist / "index.html"

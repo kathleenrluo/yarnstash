@@ -85,57 +85,38 @@ if SERVE_STATIC:
         # Mount static files
         app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
         
-        # Mount static files from dist root (Vite copies public/ to dist/ root during build)
-        # This serves files like carousel-1.JPG, about-me.JPG, vite.svg, etc.
-        # We need to mount this carefully to not interfere with API routes
-        # FastAPI processes mounts in order, so this comes after API routers
-        
-        # First, handle specific image files explicitly to ensure they're served correctly
-        @app.get("/{filename:path}")
-        async def serve_static_file(filename: str):
-            """Serve static files from dist root (images, etc.)"""
-            # Skip API routes
-            api_paths = ("api", "yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
-            first_segment = filename.split("/")[0] if filename else ""
-            if first_segment in api_paths:
-                return {"error": "Not found"}
-            
-            # Check if it's a static file in dist root
-            if filename:
-                static_file_path = frontend_dist / filename
-                if static_file_path.exists() and static_file_path.is_file():
-                    # Determine media type
-                    media_type = None
-                    if filename.lower().endswith(('.jpg', '.jpeg')):
-                        media_type = 'image/jpeg'
-                    elif filename.lower().endswith('.png'):
-                        media_type = 'image/png'
-                    elif filename.lower().endswith('.gif'):
-                        media_type = 'image/gif'
-                    elif filename.lower().endswith('.webp'):
-                        media_type = 'image/webp'
-                    elif filename.lower().endswith('.svg'):
-                        media_type = 'image/svg+xml'
-                    
-                    print(f"Serving static file: {filename} from {static_file_path}")
-                    return FileResponse(str(static_file_path), media_type=media_type)
-                else:
-                    print(f"Static file not found: {filename} at {static_file_path}")
-            
-            # If not a static file, continue to SPA handler below
-            # This will be handled by the next route handler
-            from fastapi.responses import Response
-            return Response(status_code=404)
-        
-        # Serve index.html for SPA routing (catch-all for non-API, non-static routes)
-        # This must be registered LAST so API routes and static files take precedence
+        # Serve static files from dist root and SPA routing
+        # This must be registered LAST so API routes take precedence
+        # Vite copies public/ files to dist/ root during build
         @app.get("/{full_path:path}")
-        async def serve_spa(full_path: str):
-            # Don't serve index.html for API routes or static file paths
+        async def serve_static_or_spa(full_path: str):
+            # Don't serve for API routes (these are handled by routers above)
             api_paths = ("api", "yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
             first_segment = full_path.split("/")[0] if full_path else ""
             if first_segment in api_paths:
                 return {"error": "Not found"}
+            
+            # Check if it's a static file in dist root (like carousel-1.JPG, about-me.JPG, vite.svg)
+            if full_path:
+                static_file_path = frontend_dist / full_path
+                if static_file_path.exists() and static_file_path.is_file():
+                    # Determine media type based on file extension
+                    media_type = None
+                    if full_path.lower().endswith(('.jpg', '.jpeg')):
+                        media_type = 'image/jpeg'
+                    elif full_path.lower().endswith('.png'):
+                        media_type = 'image/png'
+                    elif full_path.lower().endswith('.gif'):
+                        media_type = 'image/gif'
+                    elif full_path.lower().endswith('.webp'):
+                        media_type = 'image/webp'
+                    elif full_path.lower().endswith('.svg'):
+                        media_type = 'image/svg+xml'
+                    
+                    print(f"Serving static file: {full_path} from {static_file_path}")
+                    return FileResponse(str(static_file_path), media_type=media_type)
+                else:
+                    print(f"Static file not found: {full_path} at {static_file_path}")
             
             # Otherwise, serve index.html for SPA routing
             index_path = frontend_dist / "index.html"

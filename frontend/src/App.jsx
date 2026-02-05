@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { useEffect } from 'react';
 import Navbar from './components/common/Navbar';
 import DemoBanner from './components/common/DemoBanner';
+import FeedbackButton from './components/common/FeedbackButton';
 import LandingPage from './pages/LandingPage';
 import StashPage from './pages/StashPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -58,6 +59,7 @@ function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/calculator" element={<CalculatorPage />} />
         </Routes>
+        <FeedbackButton />
       </div>
     </Router>
   );

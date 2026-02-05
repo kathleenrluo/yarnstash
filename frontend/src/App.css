@@ -239,6 +239,39 @@
   }
 }
 
+/* Feedback Button Styles */
+.feedback-button {
+  transition: all 0.2s ease !important;
+}
+
+.feedback-button:hover {
+  background-color: #6B5A42 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+.feedback-button:active {
+  transform: translateY(0) !important;
+}
+
+@media (max-width: 768px) {
+  .feedback-button {
+    bottom: 1.5rem !important;
+    right: 1.5rem !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .feedback-button .feedback-text {
+    display: none;
+  }
+  
+  .feedback-button svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+}
+
 /* Responsive styles for Navbar */
 @media (max-width: 768px) {
   .navbar-responsive {

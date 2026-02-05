@@ -85,21 +85,20 @@ if SERVE_STATIC:
         # Mount static files
         app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
         
-        # Serve static files from dist (Vite copies public/ to dist/ root during build)
-        # Serve files like carousel-1.JPG, about-me.JPG, etc. from dist/
-        @app.get("/{filename:path}")
-        async def serve_static_or_spa(filename: str):
-            # Don't serve for API routes
+        # Mount public files from dist root (Vite copies public/ to dist/ root during build)
+        # This serves files like carousel-1.JPG, about-me.JPG, vite.svg, etc.
+        # Use html=False to prevent serving index.html for all requests
+        app.mount("/", StaticFiles(directory=str(frontend_dist), html=False), name="static_root")
+        
+        # Serve index.html for SPA routing (catch-all for non-API, non-static routes)
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            # Don't serve index.html for API routes or static files
             api_paths = ("api", "yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
-            if filename and filename.split("/")[0] in api_paths:
+            if full_path and full_path.split("/")[0] in api_paths:
                 return {"error": "Not found"}
             
-            # Check if it's a static file in dist (like carousel-1.JPG, about-me.JPG)
-            static_file_path = frontend_dist / filename
-            if static_file_path.exists() and static_file_path.is_file():
-                return FileResponse(str(static_file_path))
-            
-            # Otherwise, serve index.html for SPA routing
+            # Serve index.html for SPA routing
             index_path = frontend_dist / "index.html"
             if index_path.exists():
                 return FileResponse(str(index_path))

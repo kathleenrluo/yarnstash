@@ -101,10 +101,17 @@ if SERVE_STATIC:
         @app.get("/{full_path:path}")
         async def serve_static_or_spa(full_path: str):
             # Don't serve for API routes (these are handled by routers above)
-            api_paths = ("api", "yarns", "stash", "projects", "options", "upload", "docs", "redoc", "openapi.json", "uploads", "assets", "health")
-            first_segment = full_path.split("/")[0] if full_path else ""
-            if first_segment in api_paths:
-                return {"error": "Not found"}
+            # API routes start with /api/ or are specific paths like /docs, /uploads, etc.
+            # Frontend routes like /stash, /projects should be served as SPA
+            if full_path:
+                # Check for actual API routes (must start with /api/)
+                if full_path.startswith("api/"):
+                    return {"error": "Not found"}
+                # Check for other API-related paths
+                api_paths = ("docs", "redoc", "openapi.json", "uploads", "assets", "health")
+                first_segment = full_path.split("/")[0]
+                if first_segment in api_paths:
+                    return {"error": "Not found"}
             
             # Check if it's a static file in dist root (like carousel-1.JPG, about-me.JPG, vite.svg)
             # IMPORTANT: Check for files FIRST before falling back to index.html

@@ -9,9 +9,14 @@ WORKDIR /app/frontend
 RUN npm install --legacy-peer-deps
 
 WORKDIR /app
+# Copy frontend source code (this includes public/ folder which Vite needs during build)
 COPY frontend ./frontend
 WORKDIR /app/frontend
+# Verify public folder exists before build
+RUN ls -la public/ || echo "WARNING: public folder not found"
 RUN VITE_DEMO_MODE=true npm run build
+# Verify files were copied to dist after build
+RUN ls -la dist/ | head -20
 WORKDIR /app
 
 # Python backend stage

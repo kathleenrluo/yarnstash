@@ -17,10 +17,10 @@ const Navbar = () => {
   ];
 
   return (
-    <nav style={styles.nav}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>🧶 Kat's Yarn Box</h1>
-        <ul style={styles.navList}>
+    <nav style={styles.nav} className="navbar-responsive">
+      <div style={styles.container} className="navbar-container-responsive">
+        <h1 style={styles.title} className="navbar-title-responsive">🧶 Kat's Yarn Box</h1>
+        <ul style={styles.navList} className="navbar-list-responsive">
           {navItems.map((item) => (
             <li key={item.path}>
               <Link
@@ -29,6 +29,7 @@ const Navbar = () => {
                   ...styles.navLink,
                   ...(location.pathname === item.path ? styles.activeLink : {}),
                 }}
+                className="navbar-link-responsive"
               >
                 {item.label}
               </Link>

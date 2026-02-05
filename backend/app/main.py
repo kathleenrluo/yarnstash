@@ -113,21 +113,26 @@ if SERVE_STATIC:
                 print(f"[STATIC FILE CHECK] Request: {full_path}, Path: {static_file_path}, Exists: {static_file_path.exists()}")
                 
                 if static_file_path.exists() and static_file_path.is_file():
-                    # Determine media type based on file extension
+                    # Determine media type based on file extension (case-insensitive)
+                    file_ext = Path(full_path).suffix.lower()
                     media_type = None
-                    if full_path.lower().endswith(('.jpg', '.jpeg')):
+                    if file_ext in ('.jpg', '.jpeg'):
                         media_type = 'image/jpeg'
-                    elif full_path.lower().endswith('.png'):
+                    elif file_ext == '.png':
                         media_type = 'image/png'
-                    elif full_path.lower().endswith('.gif'):
+                    elif file_ext == '.gif':
                         media_type = 'image/gif'
-                    elif full_path.lower().endswith('.webp'):
+                    elif file_ext == '.webp':
                         media_type = 'image/webp'
-                    elif full_path.lower().endswith('.svg'):
+                    elif file_ext == '.svg':
                         media_type = 'image/svg+xml'
                     
-                    print(f"[SERVING FILE] {full_path} as {media_type}")
-                    return FileResponse(str(static_file_path), media_type=media_type)
+                    print(f"[SERVING FILE] {full_path} as {media_type or 'default'}")
+                    # Always set media_type to ensure browser recognizes it as an image
+                    if media_type:
+                        return FileResponse(str(static_file_path), media_type=media_type)
+                    else:
+                        return FileResponse(str(static_file_path))
                 else:
                     # If it looks like a file request (has extension) but file doesn't exist, return 404
                     # Don't serve index.html for missing files

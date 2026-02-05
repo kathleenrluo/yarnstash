@@ -16,7 +16,10 @@ WORKDIR /app/frontend
 RUN ls -la public/ || echo "WARNING: public folder not found"
 RUN VITE_DEMO_MODE=true npm run build
 # Verify files were copied to dist after build
-RUN ls -la dist/ | head -20
+RUN echo "=== Files in dist after Vite build ===" && \
+    ls -la dist/ | head -20 && \
+    echo "=== Checking for image files ===" && \
+    ls -la dist/*.JPG dist/*.jpg 2>/dev/null || echo "No JPG files found in dist"
 WORKDIR /app
 
 # Python backend stage
@@ -37,8 +40,14 @@ COPY backend ./backend
 
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-# Also copy public folder contents directly to dist (backup in case Vite didn't copy them)
-COPY --from=frontend-builder /app/frontend/public/* ./frontend/dist/ 2>/dev/null || echo "Note: Public files should already be in dist from Vite build"
+
+# Also copy public folder from builder stage and copy files to dist
+# (Vite should copy public/ to dist/ during build, but ensure they're there)
+COPY --from=frontend-builder /app/frontend/public ./frontend/public_temp
+RUN cp -r /app/frontend/public_temp/* /app/frontend/dist/ 2>/dev/null || true && \
+    rm -rf /app/frontend/public_temp && \
+    echo "=== Files in dist after copying public ===" && \
+    ls -la /app/frontend/dist/*.JPG /app/frontend/dist/*.jpg 2>/dev/null || echo "Still no JPG files"
 
 # Copy frontend public assets (carousel images, about-me photo, etc.)
 COPY frontend/public ./frontend/public

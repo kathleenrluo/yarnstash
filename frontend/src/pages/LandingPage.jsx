@@ -114,6 +114,36 @@ const LandingPage = () => {
       marginBottom: theme.spacing.xl,
       color: theme.colors.primary,
       textAlign: 'left',
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing.md,
+      flexWrap: 'wrap',
+    },
+    socialLinks: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+      marginLeft: 'auto',
+    },
+    socialLink: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      backgroundColor: theme.colors.surface,
+      border: `1px solid ${theme.colors.border}`,
+      color: theme.colors.textPrimary,
+      textDecoration: 'none',
+      transition: theme.transitions.normal,
+      fontSize: '1.5rem',
+      cursor: 'pointer',
+    },
+    socialLinkHover: {
+      backgroundColor: theme.colors.surfaceHover,
+      transform: 'translateY(-2px)',
+      boxShadow: theme.shadows.md,
     },
     aboutContent: {
       display: 'flex',
@@ -328,7 +358,49 @@ const LandingPage = () => {
         </div>
         
         <div style={styles.aboutSection} className="landing-section">
-          <h2 style={styles.aboutTitle} className="landing-section-title">About Me</h2>
+          <h2 style={styles.aboutTitle} className="landing-section-title">
+            About Me
+            <div style={styles.socialLinks} className="social-links-mobile">
+              <a
+                href="https://www.instagram.com/b.lakout"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.socialLink}
+                className="social-link-mobile"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.surfaceHover;
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = theme.shadows.md;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.surface;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                aria-label="Instagram"
+              >
+                📷
+              </a>
+              <a
+                href="mailto:b.lakout.kat@gmail.com"
+                style={styles.socialLink}
+                className="social-link-mobile"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.surfaceHover;
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = theme.shadows.md;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.surface;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                aria-label="Email"
+              >
+                ✉️
+              </a>
+            </div>
+          </h2>
           <div style={styles.aboutContent} className="about-content-responsive">
             <div style={styles.aboutImageContainer}>
               <img 

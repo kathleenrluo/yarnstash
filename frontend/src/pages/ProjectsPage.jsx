@@ -35,6 +35,8 @@ const ProjectsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date'); // 'name', 'date', 'favorite', 'craft'
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   useEffect(() => {
     loadProjects();
@@ -226,6 +228,27 @@ const ProjectsPage = () => {
     return filtered;
   }, [projects, filterFavorite, filterCraft, filterTag, searchTerm, sortBy, sortOrder]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterFavorite, filterCraft, filterTag, searchTerm, sortBy, sortOrder]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredAndSortedProjects.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProjects = filteredAndSortedProjects.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -367,8 +390,31 @@ const ProjectsPage = () => {
             </p>
           </div>
         ) : (
-          <div style={styles.projectsGrid}>
-            {filteredAndSortedProjects.map((project) => (
+          <>
+            {/* Pagination controls - top */}
+            <div style={styles.paginationControls}>
+              <div style={styles.paginationInfo}>
+                <span>
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredAndSortedProjects.length)} of {filteredAndSortedProjects.length} entries
+                </span>
+                <div style={styles.itemsPerPageSelector}>
+                  <label style={styles.itemsPerPageLabel}>Items per page:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                    style={styles.itemsPerPageSelect}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.projectsGrid}>
+              {paginatedProjects.map((project) => (
               <Card
                 key={project.id}
                 style={styles.projectCard}
@@ -434,7 +480,89 @@ const ProjectsPage = () => {
                 </div>
               </Card>
             ))}
-          </div>
+            </div>
+
+            {/* Pagination controls - bottom */}
+            {totalPages > 1 && (
+              <div style={styles.paginationControls}>
+                <div style={styles.paginationButtons}>
+                  <button
+                    onClick={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                    style={{
+                      ...styles.paginationButton,
+                      ...(currentPage === 1 ? styles.paginationButtonDisabled : {}),
+                    }}
+                  >
+                    « First
+                  </button>
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    style={{
+                      ...styles.paginationButton,
+                      ...(currentPage === 1 ? styles.paginationButtonDisabled : {}),
+                    }}
+                  >
+                    ‹ Prev
+                  </button>
+                  
+                  {/* Page numbers */}
+                  <div style={styles.pageNumbers}>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          style={{
+                            ...styles.paginationButton,
+                            ...(currentPage === pageNum ? styles.paginationButtonActive : {}),
+                          }}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      ...styles.paginationButton,
+                      ...(currentPage === totalPages ? styles.paginationButtonDisabled : {}),
+                    }}
+                  >
+                    Next ›
+                  </button>
+                  <button
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      ...styles.paginationButton,
+                      ...(currentPage === totalPages ? styles.paginationButtonDisabled : {}),
+                    }}
+                  >
+                    Last »
+                  </button>
+                </div>
+                <div style={styles.paginationPageInfo}>
+                  Page {currentPage} of {totalPages}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -724,6 +852,79 @@ const styles = {
     fontSize: '0.9rem',
     fontWeight: '500',
     transition: 'all 0.2s ease',
+  },
+  paginationControls: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  paginationInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing.lg,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  itemsPerPageSelector: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  itemsPerPageLabel: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textPrimary,
+  },
+  itemsPerPageSelect: {
+    padding: '0.5rem 0.75rem',
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.borderRadius.md,
+    fontSize: theme.typography.fontSize.sm,
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.textPrimary,
+    cursor: 'pointer',
+  },
+  paginationButtons: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  paginationButton: {
+    padding: '0.5rem 0.75rem',
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.textPrimary,
+    cursor: 'pointer',
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.medium,
+    transition: theme.transitions.normal,
+    minWidth: '40px',
+  },
+  paginationButtonActive: {
+    backgroundColor: theme.colors.primary,
+    color: theme.colors.surface,
+    borderColor: theme.colors.primary,
+  },
+  paginationButtonDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+    backgroundColor: theme.colors.border,
+  },
+  pageNumbers: {
+    display: 'flex',
+    gap: theme.spacing.xs,
+  },
+  paginationPageInfo: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeight.medium,
   },
 };
 

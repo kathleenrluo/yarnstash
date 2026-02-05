@@ -515,53 +515,72 @@ export const uploadImages = async (files) => {
 export const getImageUrl = (path) => {
   if (!path) return null;
   
-  // If it's already a full URL, check if it's localhost (from dev) and convert to relative
+  // If it's already a full URL
   if (path.startsWith('http://') || path.startsWith('https://')) {
-    // If it's a localhost URL (from development), convert to relative path
-    if (path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0')) {
-      // Extract the path part (e.g., /uploads/filename.jpg)
-      try {
-        const url = new URL(path);
-        return url.pathname; // Returns /uploads/filename.jpg
-      } catch (e) {
-        // If URL parsing fails, try to extract path manually
-        // Match /uploads/ followed by filename
+    // In development, keep localhost URLs as-is (frontend and backend on different ports)
+    if (import.meta.env.DEV) {
+      if (path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0')) {
+        return path; // Keep full localhost URL in development
+      }
+    }
+    
+    // In production, convert localhost URLs to relative paths
+    if (import.meta.env.PROD) {
+      if (path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0')) {
+        // Extract the path part (e.g., /uploads/filename.jpg)
+        try {
+          const url = new URL(path);
+          return url.pathname; // Returns /uploads/filename.jpg
+        } catch (e) {
+          // If URL parsing fails, try to extract path manually
+          const match = path.match(/\/uploads\/[^\/\s]+/);
+          if (match) {
+            return match[0];
+          }
+          return path;
+        }
+      }
+      
+      // Block HTTP URLs from non-localhost sources in production
+      if (path.startsWith('http://')) {
+        // Convert HTTP to relative path if it looks like an upload
         const match = path.match(/\/uploads\/[^\/\s]+/);
         if (match) {
           return match[0];
         }
-        // If no /uploads/ found, try to extract just the filename and prepend /uploads/
-        const filenameMatch = path.match(/([^\/\s]+\.(jpg|jpeg|png|gif|webp|JPG|JPEG|PNG|GIF|WEBP))$/i);
-        if (filenameMatch) {
-          return `/uploads/${filenameMatch[1]}`;
-        }
-        return path;
       }
     }
-    // Otherwise, return the full URL as is (external HTTPS URLs only)
-    // Block HTTP URLs from non-localhost sources in production
-    if (path.startsWith('http://') && import.meta.env.PROD) {
-      // Convert HTTP to relative path if it looks like an upload
-      const match = path.match(/\/uploads\/[^\/\s]+/);
-      if (match) {
-        return match[0];
-      }
-    }
+    
+    // Return HTTPS URLs as-is (external URLs)
     return path;
   }
   
   // If it starts with /uploads/, use as is (already relative)
   if (path.startsWith('/uploads/')) {
+    // In development, convert relative paths to full localhost URLs
+    if (import.meta.env.DEV) {
+      return `http://localhost:8000${path}`;
+    }
     return path;
   }
   
   // If it's just a filename (no slashes), prepend /uploads/
   if (!path.includes('/') && path.match(/\.(jpg|jpeg|png|gif|webp|JPG|JPEG|PNG|GIF|WEBP)$/i)) {
-    return `/uploads/${path}`;
+    const fullPath = `/uploads/${path}`;
+    // In development, convert to full localhost URL
+    if (import.meta.env.DEV) {
+      return `http://localhost:8000${fullPath}`;
+    }
+    return fullPath;
   }
   
   // Otherwise, assume it's a relative path and prepend /uploads/
-  return `/uploads/${path}`;
+  const fullPath = `/uploads/${path}`;
+  // In development, convert to full localhost URL
+  if (import.meta.env.DEV) {
+    return `http://localhost:8000${fullPath}`;
+  }
+  return fullPath;
 };
 
 export default apiClient;

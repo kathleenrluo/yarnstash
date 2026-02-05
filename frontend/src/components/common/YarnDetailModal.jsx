@@ -1271,7 +1271,7 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
           {yarn.yarn_photo_url && (
             <div style={styles.imageSection}>
               <img
-                src={yarn.yarn_photo_url}
+                src={getImageUrl(yarn.yarn_photo_url)}
                 alt={`${yarn.brand_name} ${yarn.yarn_name}`}
                 style={styles.image}
               />
@@ -1372,7 +1372,7 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
             <div style={styles.section}>
               <h3 style={styles.sectionTitle}>Label</h3>
               <img
-                src={yarn.label_photo_url}
+                src={getImageUrl(yarn.label_photo_url)}
                 alt="Yarn label"
                 style={styles.labelImage}
               />

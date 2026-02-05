@@ -18,9 +18,9 @@ from pathlib import Path
 # Get the backend directory (parent of app/models)
 BACKEND_DIR = Path(__file__).parent.parent.parent
 
-# Always use the same database file
-# DEMO_MODE now only controls read-only behavior, not which database to use
-DB_FILENAME = "yarn_stash.db"
+# Use demo database if DEMO_MODE is set, otherwise use regular database
+USE_DEMO_DB = os.getenv("DEMO_MODE", "false").lower() == "true"
+DB_FILENAME = "yarn_stash_demo.db" if USE_DEMO_DB else "yarn_stash.db"
 DB_PATH = BACKEND_DIR / DB_FILENAME
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 

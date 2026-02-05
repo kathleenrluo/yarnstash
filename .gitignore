@@ -39,8 +39,7 @@ build/
 Thumbs.db
 
 # Database
-# Note: yarn_stash.db is tracked on demo branch for deployment, but ignored on main
-# yarn_stash.db
+yarn_stash.db
 yarn_stash_demo.db
 
 # Backups

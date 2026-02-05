@@ -101,7 +101,23 @@ if SERVE_STATIC:
                 static_file_path = frontend_dist / filename
                 # Check if file exists and is actually a file (not a directory)
                 if static_file_path.exists() and static_file_path.is_file():
-                    return FileResponse(str(static_file_path))
+                    # Determine media type based on file extension
+                    media_type = None
+                    if filename.lower().endswith(('.jpg', '.jpeg')):
+                        media_type = 'image/jpeg'
+                    elif filename.lower().endswith('.png'):
+                        media_type = 'image/png'
+                    elif filename.lower().endswith('.gif'):
+                        media_type = 'image/gif'
+                    elif filename.lower().endswith('.webp'):
+                        media_type = 'image/webp'
+                    elif filename.lower().endswith('.svg'):
+                        media_type = 'image/svg+xml'
+                    
+                    return FileResponse(
+                        str(static_file_path),
+                        media_type=media_type
+                    )
             
             # Otherwise, serve index.html for SPA routing
             index_path = frontend_dist / "index.html"

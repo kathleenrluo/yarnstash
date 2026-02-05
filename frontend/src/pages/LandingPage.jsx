@@ -52,10 +52,13 @@ const LandingPage = () => {
       alignItems: 'center',
       justifyContent: 'center',
       padding: theme.spacing.xl,
+      width: '100%',
+      boxSizing: 'border-box',
     },
     content: {
       maxWidth: '1000px',
       textAlign: 'center',
+      width: '100%',
     },
     title: {
       fontSize: '2.5rem',
@@ -147,6 +150,8 @@ const LandingPage = () => {
       borderRadius: theme.borderRadius.lg,
       border: `1px solid ${theme.colors.border}`,
       boxShadow: theme.shadows.md,
+      width: '100%',
+      boxSizing: 'border-box',
     },
     interestsTitle: {
       fontSize: theme.typography.fontSize['3xl'],
@@ -168,6 +173,8 @@ const LandingPage = () => {
       borderRadius: theme.borderRadius.lg,
       border: `1px solid ${theme.colors.border}`,
       boxShadow: theme.shadows.md,
+      width: '100%',
+      boxSizing: 'border-box',
     },
     carouselTitle: {
       fontSize: theme.typography.fontSize['3xl'],
@@ -280,16 +287,17 @@ const LandingPage = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.content}>
-        <h1 style={styles.title}>Welcome to Yarn Stash Tracker</h1>
-        <p style={styles.description}>
+    <div style={styles.container} className="landing-container">
+      <div style={styles.content} className="landing-content">
+        <h1 style={styles.title} className="landing-title">Welcome to Yarn Stash Tracker</h1>
+        <p style={styles.description} className="landing-description">
           Track your yarn collection, manage your projects, and calculate yarn usage
           all in one place.
         </p>
-        <div style={styles.features}>
+        <div style={styles.features} className="landing-features">
           <div 
             style={styles.feature}
+            className="landing-feature"
             onClick={() => handleFeatureClick('/stash')}
             onMouseEnter={handleFeatureMouseEnter}
             onMouseLeave={handleFeatureMouseLeave}
@@ -299,6 +307,7 @@ const LandingPage = () => {
           </div>
           <div 
             style={styles.feature}
+            className="landing-feature"
             onClick={() => handleFeatureClick('/projects')}
             onMouseEnter={handleFeatureMouseEnter}
             onMouseLeave={handleFeatureMouseLeave}
@@ -308,6 +317,7 @@ const LandingPage = () => {
           </div>
           <div 
             style={styles.feature}
+            className="landing-feature"
             onClick={() => handleFeatureClick('/calculator')}
             onMouseEnter={handleFeatureMouseEnter}
             onMouseLeave={handleFeatureMouseLeave}
@@ -317,8 +327,8 @@ const LandingPage = () => {
           </div>
         </div>
         
-        <div style={styles.aboutSection}>
-          <h2 style={styles.aboutTitle}>About Me</h2>
+        <div style={styles.aboutSection} className="landing-section">
+          <h2 style={styles.aboutTitle} className="landing-section-title">About Me</h2>
           <div style={styles.aboutContent} className="about-content-responsive">
             <div style={styles.aboutImageContainer}>
               <img 
@@ -342,16 +352,16 @@ const LandingPage = () => {
           </div>
         </div>
         
-        <div style={styles.interestsSection}>
-          <h2 style={styles.interestsTitle}>Other Interests</h2>
-          <p style={styles.interestsText}>
+        <div style={styles.interestsSection} className="landing-section">
+          <h2 style={styles.interestsTitle} className="landing-section-title">Other Interests</h2>
+          <p style={styles.interestsText} className="interests-text-responsive">
             Outside of crocheting and coding, I love board games AND video games, with longtime favorites including Super Mario Galaxy, Smash, and LittleBigPlanet 2. I recently finished Silksong and am always looking for new game recs! I'm a dancer with a love for fashion (especially accessories and metal hardware) and I'm gradually learning knitting, sewing, and embroidery to build a more sustainable and unique wardrobe. I love spending time baking and making drinks with my friends, and when I'm not indoors, I'm usually hiking, skiing, or snowboarding B)
           </p>
         </div>
 
         {carouselImages.length > 0 && (
-          <div style={styles.carouselSection}>
-            <h2 style={styles.carouselTitle}>Gallery</h2>
+          <div style={styles.carouselSection} className="landing-section carousel-section-responsive">
+            <h2 style={styles.carouselTitle} className="landing-section-title">Gallery</h2>
             <div style={styles.carouselContainer}>
               <div style={styles.carouselImageWrapper} className="carousel-image-wrapper">
                 <img

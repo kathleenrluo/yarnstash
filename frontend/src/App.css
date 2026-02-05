@@ -147,3 +147,80 @@
     font-size: 1.2rem !important;
   }
 }
+
+/* Responsive styles for Landing Page */
+@media (max-width: 768px) {
+  /* Container and content */
+  .landing-container {
+    padding: 1rem !important;
+    min-height: auto !important;
+  }
+  
+  .landing-content {
+    padding: 0 !important;
+  }
+  
+  /* Title and description */
+  .landing-title {
+    font-size: 1.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .landing-description {
+    font-size: 1rem !important;
+    margin-bottom: 1.5rem !important;
+    padding: 0 0.5rem;
+  }
+  
+  /* Feature cards */
+  .landing-features {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    margin-top: 1rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .landing-feature {
+    padding: 1rem !important;
+  }
+  
+  /* Sections */
+  .landing-section {
+    padding: 1.5rem !important;
+    margin-top: 1.5rem !important;
+  }
+  
+  .landing-section-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* About section */
+  .about-image-responsive {
+    width: 100% !important;
+    max-width: 250px !important;
+    height: auto !important;
+    aspect-ratio: 1 !important;
+    margin: 0 auto 1rem !important;
+  }
+  
+  .about-blurb-responsive {
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+  }
+  
+  /* Interests section */
+  .interests-text-responsive {
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+  }
+  
+  /* Carousel */
+  .carousel-section-responsive {
+    padding: 1.5rem !important;
+  }
+  
+  .carousel-container-responsive {
+    max-width: 100% !important;
+  }
+}

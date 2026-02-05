@@ -14,7 +14,7 @@ COPY frontend ./frontend
 WORKDIR /app/frontend
 # Verify public folder exists before build
 RUN ls -la public/ || echo "WARNING: public folder not found"
-RUN VITE_DEMO_MODE=true npm run build
+RUN npm run build
 # Verify files were copied to dist after build
 RUN echo "=== Files in dist after Vite build ===" && \
     ls -la dist/ | head -20 && \
@@ -52,18 +52,14 @@ RUN cp -r /app/frontend/public_temp/* /app/frontend/dist/ 2>/dev/null || true &&
 # Copy frontend public assets (carousel images, about-me photo, etc.)
 COPY frontend/public ./frontend/public
 
-# Copy demo database
-COPY backend/yarn_stash_demo.db ./backend/
-
-# Copy uploads directory (images)
-COPY backend/uploads ./backend/uploads
+# Create empty uploads directory (users will upload their own images)
+RUN mkdir -p ./backend/uploads
 
 # Expose port
 EXPOSE $PORT
 
 # Set environment variables
 ENV SERVE_STATIC=true
-ENV DEMO_MODE=true
 ENV PORT=8000
 
 # Set working directory to backend

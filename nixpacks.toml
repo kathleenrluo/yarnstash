@@ -9,7 +9,7 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "VITE_DEMO_MODE=true npm run build --prefix frontend"
+  "npm run build --prefix frontend"
 ]
 
 [start]

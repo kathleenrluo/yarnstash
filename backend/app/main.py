@@ -77,9 +77,19 @@ app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 # Serve static frontend files in production/demo mode
 if SERVE_STATIC:
-    # Path to built frontend (relative to backend/app/main.py)
-    frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
-    frontend_public = Path(__file__).parent.parent.parent / "frontend" / "public"
+    # Path to built frontend
+    # In Docker: __file__ is /app/backend/app/main.py, so we go up to /app, then to frontend/dist
+    # Locally: __file__ is backend/app/main.py, so we go up to root, then to frontend/dist
+    backend_dir = Path(__file__).parent.parent  # backend/
+    project_root = backend_dir.parent  # project root
+    frontend_dist = project_root / "frontend" / "dist"
+    frontend_public = project_root / "frontend" / "public"
+    
+    # Debug: print the path
+    print(f"Frontend dist path: {frontend_dist}")
+    print(f"Frontend dist exists: {frontend_dist.exists()}")
+    if frontend_dist.exists():
+        print(f"Files in dist: {list(frontend_dist.glob('*'))[:10]}")
     
     if frontend_dist.exists():
         # Mount static files
@@ -99,6 +109,8 @@ if SERVE_STATIC:
             # Check if it's a static file in dist root (like carousel-1.JPG, about-me.JPG, vite.svg)
             if full_path:
                 static_file_path = frontend_dist / full_path
+                print(f"Looking for static file: {full_path} at {static_file_path}")
+                print(f"File exists: {static_file_path.exists()}, is_file: {static_file_path.is_file() if static_file_path.exists() else False}")
                 if static_file_path.exists() and static_file_path.is_file():
                     # Determine media type based on file extension
                     media_type = None

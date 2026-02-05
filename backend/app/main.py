@@ -149,7 +149,8 @@ if SERVE_STATIC:
                         return {"error": "File not found"}, 404
             
             # Only serve index.html for routes that don't look like file requests (SPA routing)
-            print(f"[SPA ROUTING] Serving index.html for: {full_path}")
+            # This handles client-side routing - all non-API, non-file routes should serve index.html
+            print(f"[SPA ROUTING] Serving index.html for: {full_path or '(root)'}")
             index_path = frontend_dist / "index.html"
             if index_path.exists():
                 return FileResponse(str(index_path))

@@ -107,10 +107,11 @@ if SERVE_STATIC:
                 return {"error": "Not found"}
             
             # Check if it's a static file in dist root (like carousel-1.JPG, about-me.JPG, vite.svg)
+            # IMPORTANT: Check for files FIRST before falling back to index.html
             if full_path:
                 static_file_path = frontend_dist / full_path
-                print(f"Looking for static file: {full_path} at {static_file_path}")
-                print(f"File exists: {static_file_path.exists()}, is_file: {static_file_path.is_file() if static_file_path.exists() else False}")
+                print(f"[STATIC FILE CHECK] Request: {full_path}, Path: {static_file_path}, Exists: {static_file_path.exists()}")
+                
                 if static_file_path.exists() and static_file_path.is_file():
                     # Determine media type based on file extension
                     media_type = None
@@ -125,12 +126,17 @@ if SERVE_STATIC:
                     elif full_path.lower().endswith('.svg'):
                         media_type = 'image/svg+xml'
                     
-                    print(f"Serving static file: {full_path} from {static_file_path}")
+                    print(f"[SERVING FILE] {full_path} as {media_type}")
                     return FileResponse(str(static_file_path), media_type=media_type)
                 else:
-                    print(f"Static file not found: {full_path} at {static_file_path}")
+                    # If it looks like a file request (has extension) but file doesn't exist, return 404
+                    # Don't serve index.html for missing files
+                    if '.' in full_path and '/' not in full_path.split('.')[-1]:  # Has file extension
+                        print(f"[FILE NOT FOUND] {full_path} - returning 404")
+                        return {"error": "File not found"}, 404
             
-            # Otherwise, serve index.html for SPA routing
+            # Only serve index.html for routes that don't look like file requests (SPA routing)
+            print(f"[SPA ROUTING] Serving index.html for: {full_path}")
             index_path = frontend_dist / "index.html"
             if index_path.exists():
                 return FileResponse(str(index_path))

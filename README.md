@@ -265,9 +265,57 @@ This project reflects a focus on:
 - **Computer Vision**: Scan yarn labels automatically
 - **Mobile App**: Native mobile experience
 
+## Initial Setup
+
+When you first clone this repository, you'll need to initialize an empty database:
+
+```bash
+# Initialize empty database with all tables
+python backend/utilities/init_empty_db.py
+```
+
+Or if you want sample data for testing:
+
+```bash
+# Initialize database and add sample data
+python backend/utilities/init_empty_db.py
+python backend/utilities/insert_test_data.py
+```
+
+The database will be created at `backend/yarn_stash.db` and will be empty (or contain sample data if you ran the test data script).
+
+## Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork the repository** and create a new branch for your feature
+2. **Make your changes** following the existing code style
+3. **Test your changes** to ensure everything works
+4. **Submit a pull request** to the `main` branch with a clear description
+
+### Development Guidelines
+
+- Follow the existing code style and patterns
+- Add comments for complex logic
+- Update documentation if you add new features
+- Test your changes locally before submitting
+
+### Reporting Issues
+
+Found a bug or have a feature request? Use the feedback button in the app or open an issue on GitHub.
+
 ## License
 
-This project is open source and available for personal use.
+This project is open source and available under the MIT License. See [LICENSE](LICENSE) file for details.
+
+## Repository Structure
+
+This repository uses two main branches:
+
+- **`main`** - Production-ready code, no personal data. This is the public branch for open source.
+- **`demo`** - Contains demo data for deployment. Used for the live demo site.
+
+When contributing, please submit pull requests to the `main` branch.
 
 ## Author
 

@@ -267,7 +267,7 @@ This project reflects a focus on:
 
 ## License
 
-This project is open source and available for personal use.
+This project is open source and available under the MIT License. See [LICENSE](LICENSE) file for details.
 
 ## Author
 

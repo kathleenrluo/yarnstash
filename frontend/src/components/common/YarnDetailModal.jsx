@@ -1105,8 +1105,8 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Care Instructions</label>
-                <div style={styles.checkboxGroup}>
+                <label style={styles.label}>Care Instructions (select multiple)</label>
+                <div style={styles.multiselect}>
                   {careOptions.map(option => (
                     <label key={option.id} style={styles.checkboxLabel}>
                       <input

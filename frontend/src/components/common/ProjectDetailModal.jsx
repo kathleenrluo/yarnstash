@@ -11,6 +11,7 @@ import Tag from './Tag';
 import FavoriteButton from './FavoriteButton';
 import Select from './Select';
 import { formatDateForDisplay } from '../../utils/dateParser';
+import { formatHookSizeForDisplay } from '../../utils/hookSizes';
 import { theme } from '../../styles/theme';
 import { isDemoMode } from '../../config/demoMode';
 
@@ -1325,7 +1326,7 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
             </div>
             {project.hook_size && (
               <div style={styles.detailItem}>
-                <strong>{project.craft_type === 'crochet' ? 'Hook Size' : project.craft_type === 'knit' ? 'Needle Size' : 'Hook/Needle Size'}:</strong> {project.hook_size}
+                <strong>{project.craft_type === 'crochet' ? 'Hook Size' : project.craft_type === 'knit' ? 'Needle Size' : 'Hook/Needle Size'}:</strong> {formatHookSizeForDisplay(project.hook_size, project.craft_type)}
               </div>
             )}
             {project.pattern_type && (

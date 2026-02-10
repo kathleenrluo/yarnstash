@@ -5,14 +5,20 @@ This is the entry point for the Yarn Stash Tracker backend API.
 All routes are registered here, and the database is initialized.
 """
 
+from pathlib import Path
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pathlib import Path
-import os
+
+from app.models import *  # noqa: F401, F403 - ensure all models (including User) are registered
 from app.models.database import init_db
-from app.api import yarns, stash, projects, options, upload
+from app.api import yarns, stash, projects, options, upload, auth, showcase, admin
 
 # Create FastAPI application instance
 app = FastAPI(
@@ -58,12 +64,14 @@ app.add_middleware(
 )
 
 # Register API routers
-# Each router handles a specific domain (yarns, stash, projects, options, upload)
+app.include_router(auth.router)
 app.include_router(yarns.router)
 app.include_router(stash.router)
 app.include_router(projects.router)
 app.include_router(options.router)
 app.include_router(upload.router)
+app.include_router(showcase.router)
+app.include_router(admin.router)
 
 # Serve uploaded files statically
 # Create uploads directory if it doesn't exist
@@ -108,7 +116,7 @@ if SERVE_STATIC:
                 if full_path.startswith("api/"):
                     return {"error": "Not found"}
                 # Check for other API-related paths
-                api_paths = ("docs", "redoc", "openapi.json", "uploads", "assets", "health")
+                api_paths = ("docs", "redoc", "openapi.json", "uploads", "assets", "health", "admin")
                 first_segment = full_path.split("/")[0]
                 if first_segment in api_paths:
                     return {"error": "Not found"}

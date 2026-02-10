@@ -40,7 +40,7 @@ A full-stack web application for tracking your yarn collection, managing crochet
 ### Backend
 - **FastAPI** - Modern Python web framework
 - **SQLAlchemy** - ORM for database operations
-- **SQLite** - Database (easily migratable to PostgreSQL)
+- **SQLite / PostgreSQL** - Database (SQLite by default; set `DATABASE_URL` for PostgreSQL)
 - **Pydantic** - Data validation
 - **Uvicorn** - ASGI server
 
@@ -120,6 +120,40 @@ For convenience, PowerShell scripts are provided in the `scripts/` directory:
 .\scripts\START_FRONTEND.ps1
 ```
 
+### Using PostgreSQL
+
+The app uses **SQLite** by default. To use **PostgreSQL** instead:
+
+1. **Install PostgreSQL** (locally or use a hosted service like Railway, Neon, or Supabase).
+
+2. **Create a database** (e.g. `yarnstash`).
+
+3. **Add `DATABASE_URL` to your backend `.env`:**
+   ```env
+   DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE_NAME
+   ```
+   Examples:
+   - Local: `postgresql://postgres:postgres@localhost:5432/yarnstash`
+   - Railway: use the `DATABASE_URL` provided in your project variables (often `postgres://`; the app converts it to `postgresql://` automatically).
+
+4. **Install the PostgreSQL driver** (included in `requirements.txt`):
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+   This installs `psycopg2-binary`, which SQLAlchemy uses to connect to PostgreSQL.
+
+5. **Start the backend.** On first run, tables are created automatically via `init_db()`.
+
+**Notes:**
+- With `DATABASE_URL` set, the backend uses PostgreSQL; with it unset, it uses SQLite (`backend/yarn_stash.db`).
+- **To copy your existing SQLite data into PostgreSQL (e.g. after creating a DB on Railway):**  
+  Put the PostgreSQL URL in `backend/.env` as `DATABASE_URL`, then run once from the backend directory:  
+  `python migrations/copy_sqlite_to_postgres.py`  
+  This reads from `backend/yarn_stash.db` and copies all data into the database specified by `DATABASE_URL`.
+
+- **Deploying to Railway:** For setting `DATABASE_URL`, auth variables (Google OAuth, JWT), and persistent uploads, see **[docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)**.
+
 ## Project Structure
 
 ```
@@ -133,7 +167,7 @@ yarn-stash/
 │   │   └── main.py           # FastAPI application entry point
 │   ├── migrations/           # Database migration scripts
 │   ├── utilities/            # Development/maintenance scripts
-│   ├── tests/                # Test files
+│   ├── tests/                # (Reserved for future; suite was removed for current auth model)
 │   ├── uploads/              # User-uploaded images
 │   ├── requirements.txt      # Python dependencies
 │   └── setup.ps1            # Quick setup script
@@ -193,7 +227,7 @@ yarn-stash/
 ### Backend Development
 - The server runs with auto-reload enabled (`--reload` flag)
 - API documentation is available at `/docs` and `/redoc`
-- Database file: `yarn_stash.db` (SQLite)
+- Database: SQLite (`yarn_stash.db`) by default, or PostgreSQL when `DATABASE_URL` is set
 
 ### Frontend Development
 - Hot module replacement is enabled

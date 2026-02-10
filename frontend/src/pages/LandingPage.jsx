@@ -8,9 +8,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { theme } from '../styles/theme';
+import { useAuth } from '../context/AuthContext';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, login } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const carouselImages = [
@@ -68,7 +70,23 @@ const LandingPage = () => {
     description: {
       fontSize: theme.typography.fontSize.xl,
       color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+    },
+    signInPrompt: {
+      fontSize: theme.typography.fontSize.lg,
+      color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xxl,
+    },
+    signInButton: {
+      padding: `${theme.spacing['2xs']} ${theme.spacing['2md']}`,
+      borderRadius: theme.borderRadius.lg,
+      border: `1px solid ${theme.colors.primary}`,
+      backgroundColor: theme.colors.background,
+      color: theme.colors.primary,
+      fontWeight: theme.typography.fontWeight.semibold,
+      cursor: 'pointer',
+      fontSize: theme.typography.fontSize.base,
+      transition: theme.transitions.normal,
     },
     features: {
       display: 'grid',
@@ -323,6 +341,14 @@ const LandingPage = () => {
           Track your yarn collection, manage your projects, and calculate yarn usage
           all in one place.
         </p>
+        {!isAuthenticated && (
+          <p style={styles.signInPrompt}>
+            <button type="button" onClick={login} style={styles.signInButton}>
+              Sign in with Google
+            </button>
+            {' '}to get started.
+          </p>
+        )}
         <div style={styles.features} className="landing-features">
           <div 
             style={styles.feature}

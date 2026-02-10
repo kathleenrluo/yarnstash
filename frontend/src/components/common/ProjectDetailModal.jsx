@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
-import { getProjectWithYarns, toggleProjectFavorite, updateProject, deleteProject, getProjects, uploadImages, getImageUrl, getStash, addYarnUsage, removeYarnUsage, updateYarnUsage, getCareInstructionOptions } from '../../services/api';
+import { getProjectWithYarns, getShowcaseProjectDetails, getShowcaseStash, toggleProjectFavorite, updateProject, deleteProject, getProjects, uploadImages, getImageUrl, getStash, addYarnUsage, removeYarnUsage, updateYarnUsage, getCareInstructionOptions } from '../../services/api';
 import Tag from './Tag';
 import FavoriteButton from './FavoriteButton';
 import Select from './Select';
@@ -25,7 +25,7 @@ const formatPatternTypeLabel = (patternType) => {
   return map[patternType] || patternType;
 };
 
-const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavoriteToggle, onUpdate, onDelete }) => {
+const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavoriteToggle, onUpdate, onDelete, readOnly = false }) => {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -63,9 +63,11 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
   useEffect(() => {
     if (isOpen && projectId) {
       loadProjectDetails();
-      loadExistingTags();
-      loadStash();
-      loadCareInstructionOptions();
+      if (!readOnly) {
+        loadExistingTags();
+        loadStash();
+        loadCareInstructionOptions();
+      }
     } else {
       setProject(null);
       setError(null);
@@ -169,7 +171,7 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
 
   const loadStash = async () => {
     try {
-      const stashData = await getStash();
+      const stashData = readOnly ? await getShowcaseStash() : await getStash();
       setStash(stashData);
     } catch (err) {
       console.error('Error loading stash:', err);
@@ -207,7 +209,7 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
     try {
       setLoading(true);
       setError(null);
-      const data = await getProjectWithYarns(projectId);
+      const data = readOnly ? await getShowcaseProjectDetails(projectId) : await getProjectWithYarns(projectId);
       setProject(data);
       // Set primary image index when project loads (only if not in edit mode)
       if (data && data.image_urls && data.image_urls.length > 0 && !isEditing) {
@@ -779,8 +781,8 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
 
   if (!isOpen) return null;
 
-  // Prepare header actions for the modal
-  const headerActions = project && !isEditing ? (
+  // Prepare header actions for the modal (none when read-only/gallery)
+  const headerActions = project && !isEditing && !readOnly ? (
     <>
       {!isDemoMode && (
         <>
@@ -1235,8 +1237,8 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
                 </label>
                 <p style={styles.helpText}>
                   {yarnUsage.length > 0 && yarnUsage.some(usage => usage.yarn_id && usage.grams_used !== '')
-                    ? 'Manual care instructions will override the calculated care instructions from yarns.'
-                    : 'Required when no yarn usage is specified. Manual care instructions will override calculated care instructions from yarns.'}
+                    ? 'Leave blank to have care instructions calculated from the yarns in this project.'
+                    : 'Required when no yarns are attached. When you add yarns, leave this blank to have care instructions calculated from them.'}
                 </p>
                 <div style={styles.multiselect}>
                   {careInstructionOptions.map(opt => (

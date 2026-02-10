@@ -3,12 +3,15 @@ Yarn API Endpoints
 
 REST API endpoints for managing yarn metadata.
 All business logic is delegated to YarnService.
+Requires authentication; data is scoped to the current user.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.models.database import get_db
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.services.yarn_service import YarnService
 from app.api.schemas import (
     YarnCreate,
@@ -21,17 +24,19 @@ router = APIRouter(prefix="/yarns", tags=["yarns"])
 
 
 @router.post("/", response_model=YarnResponse, status_code=201)
-def create_yarn(yarn: YarnCreate, db: Session = Depends(get_db)):
+def create_yarn(
+    yarn: YarnCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
-    Create a new yarn entry.
-    
-    This endpoint creates yarn metadata and automatically creates
-    a stash entry with 0g. You can then update the stash quantity
-    using the stash endpoints.
+    Create a new yarn entry for the current user.
+    Automatically creates a stash entry with 0g.
     """
     try:
         return YarnService.create_yarn(
             db=db,
+            user_id=current_user.id,
             brand_name=yarn.brand_name,
             yarn_name=yarn.yarn_name,
             color_name=yarn.color_name,
@@ -54,30 +59,24 @@ def create_yarn(yarn: YarnCreate, db: Session = Depends(get_db)):
 def get_all_yarns(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Get all yarns with pagination.
-    
-    Use skip and limit for pagination.
-    """
-    return YarnService.get_all_yarns(db=db, skip=skip, limit=limit)
+    """Get all yarns for the current user with pagination."""
+    return YarnService.get_all_yarns(db=db, user_id=current_user.id, skip=skip, limit=limit)
 
 
 @router.get("/properties", response_model=YarnResponse)
 def get_yarn_properties(
     brand_name: str = Query(..., description="Brand name"),
     yarn_name: str = Query(..., description="Yarn name"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Get yarn properties by brand and yarn name (for autocomplete).
-    
-    Returns the properties of an existing yarn (any color) so the form
-    can be auto-filled when adding a new color of the same yarn.
-    """
+    """Get yarn properties by brand and yarn name (for autocomplete)."""
     yarn = YarnService.get_yarn_properties_by_brand_and_name(
         db=db,
+        user_id=current_user.id,
         brand_name=brand_name,
         yarn_name=yarn_name
     )
@@ -87,11 +86,13 @@ def get_yarn_properties(
 
 
 @router.get("/{yarn_id}", response_model=YarnResponse)
-def get_yarn(yarn_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific yarn by ID.
-    """
-    yarn = YarnService.get_yarn(db=db, yarn_id=yarn_id)
+def get_yarn(
+    yarn_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a specific yarn by ID (must belong to current user)."""
+    yarn = YarnService.get_yarn(db=db, yarn_id=yarn_id, user_id=current_user.id)
     if not yarn:
         raise HTTPException(status_code=404, detail="Yarn not found")
     return yarn
@@ -101,22 +102,15 @@ def get_yarn(yarn_id: int, db: Session = Depends(get_db)):
 def update_yarn(
     yarn_id: int,
     yarn_update: YarnUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Update yarn properties.
-    
-    Only provided fields will be updated. All fields are optional.
-    """
+    """Update yarn properties. Only the owner can update."""
     try:
-        # Convert Pydantic model to dict, excluding None values
         update_data = yarn_update.model_dump(exclude_unset=True)
-        
-        # Normalize empty strings to None for material_breakdown
         if 'material_breakdown' in update_data and update_data['material_breakdown'] == '':
             update_data['material_breakdown'] = None
-        
-        yarn = YarnService.update_yarn(db=db, yarn_id=yarn_id, **update_data)
+        yarn = YarnService.update_yarn(db=db, yarn_id=yarn_id, user_id=current_user.id, **update_data)
         if not yarn:
             raise HTTPException(status_code=404, detail="Yarn not found")
         return yarn
@@ -135,15 +129,14 @@ def update_yarn(
 
 
 @router.delete("/{yarn_id}", status_code=204)
-def delete_yarn(yarn_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a yarn.
-    
-    This will also delete associated stash entries due to CASCADE.
-    Cannot delete if yarn is used in any projects.
-    """
+def delete_yarn(
+    yarn_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a yarn. Only the owner can delete."""
     try:
-        success = YarnService.delete_yarn(db=db, yarn_id=yarn_id)
+        success = YarnService.delete_yarn(db=db, yarn_id=yarn_id, user_id=current_user.id)
         if not success:
             raise HTTPException(status_code=404, detail="Yarn not found")
     except ValueError as e:
@@ -153,14 +146,11 @@ def delete_yarn(yarn_id: int, db: Session = Depends(get_db)):
 @router.get("/search/brands", response_model=BrandSearchResponse)
 def search_brands(
     q: str = Query(..., min_length=1, description="Search term for brand name"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Search for brand names (for autocomplete).
-    
-    Returns unique brand names that match the search term.
-    """
-    brands = YarnService.search_brands(db=db, search_term=q)
+    """Search for brand names (for autocomplete) scoped to current user."""
+    brands = YarnService.search_brands(db=db, user_id=current_user.id, search_term=q)
     return BrandSearchResponse(brands=brands)
 
 
@@ -168,41 +158,31 @@ def search_brands(
 def search_yarn_names(
     q: str = Query(..., min_length=1, description="Search term for yarn name"),
     brand: Optional[str] = Query(None, description="Optional brand name to filter by"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Search for yarn names (for autocomplete).
-    
-    Returns unique yarn names that match the search term.
-    If brand is provided, only returns yarn names for that brand.
-    """
-    names = YarnService.search_yarn_names(db=db, search_term=q, brand_name=brand)
+    """Search for yarn names (for autocomplete) scoped to current user."""
+    names = YarnService.search_yarn_names(db=db, user_id=current_user.id, search_term=q, brand_name=brand)
     return BrandSearchResponse(brands=names)
 
 
 @router.get("/search/color-names", response_model=BrandSearchResponse)
 def search_color_names(
     q: str = Query(..., min_length=1, description="Search term for color name"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Search for color names (for autocomplete).
-    
-    Returns unique color names that match the search term.
-    """
-    colors = YarnService.search_color_names(db=db, search_term=q)
+    """Search for color names (for autocomplete) scoped to current user."""
+    colors = YarnService.search_color_names(db=db, user_id=current_user.id, search_term=q)
     return BrandSearchResponse(brands=colors)
 
 
 @router.get("/search/materials", response_model=BrandSearchResponse)
 def search_materials(
     q: str = Query(..., min_length=1, description="Search term for material breakdown"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Search for material breakdowns (for autocomplete).
-    
-    Returns unique material breakdowns that match the search term.
-    """
-    materials = YarnService.search_materials(db=db, search_term=q)
+    """Search for materials (for autocomplete) scoped to current user."""
+    materials = YarnService.search_materials(db=db, user_id=current_user.id, search_term=q)
     return BrandSearchResponse(brands=materials)

@@ -7,7 +7,15 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getStash, toggleYarnFavorite, getYarnWeightOptions, getColorOptions, getImageUrl } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import {
+  getStash,
+  getShowcaseStash,
+  toggleYarnFavorite,
+  getYarnWeightOptions,
+  getColorOptions,
+  getImageUrl,
+} from '../services/api';
 import Card from '../components/common/Card';
 import FavoriteButton from '../components/common/FavoriteButton';
 import ColorSelect from '../components/common/ColorSelect';
@@ -17,13 +25,15 @@ import AddYarnForm from '../components/forms/AddYarnForm';
 import { theme } from '../styles/theme';
 import { isDemoMode } from '../config/demoMode';
 
-const StashPage = () => {
+const StashPage = ({ galleryMode = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading: authLoading, login } = useAuth();
   const isClosingRef = useRef(false);
   const [stash, setStash] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const [weightLabels, setWeightLabels] = useState({});
   const [colorOptions, setColorOptions] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -45,8 +55,17 @@ const StashPage = () => {
 
   useEffect(() => {
     loadOptions();
-    loadStash();
-  }, []);
+    if (galleryMode) {
+      setNeedsLogin(false);
+      loadStash();
+    } else if (user) {
+      setNeedsLogin(false);
+      loadStash();
+    } else if (!authLoading) {
+      setNeedsLogin(true);
+      setLoading(false);
+    }
+  }, [user, authLoading, galleryMode]);
 
   // Set default sort order to descending when sorting by quantity
   useEffect(() => {
@@ -104,11 +123,19 @@ const StashPage = () => {
   const loadStash = async () => {
     try {
       setLoading(true);
-      const data = await getStash();
+      setNeedsLogin(false);
+      const data = galleryMode ? await getShowcaseStash() : await getStash();
       setStash(data);
       setError(null);
     } catch (err) {
-      setError('Failed to load stash. Make sure the backend is running.');
+      if (!galleryMode && err.response?.status === 401) {
+        setNeedsLogin(true);
+        setError(null);
+      } else {
+        setError(galleryMode
+          ? 'Failed to load gallery stash.'
+          : 'Failed to load stash. Make sure the backend is running.');
+      }
       console.error('Error loading stash:', err);
     } finally {
       setLoading(false);
@@ -344,12 +371,29 @@ const StashPage = () => {
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
-  if (loading) {
+  const isLoading = galleryMode ? loading : (authLoading || (user && loading));
+  if (isLoading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.content}>
+          <h1 style={styles.title}>{galleryMode ? "Kat's Stash" : 'My Stash'}</h1>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!galleryMode && (needsLogin || (!authLoading && !user))) {
     return (
       <div style={styles.container}>
         <div style={styles.content}>
           <h1 style={styles.title}>My Stash</h1>
-          <p>Loading...</p>
+          <div style={styles.signInPrompt}>
+            <p style={styles.signInText}>Sign in to view and manage your stash.</p>
+            <button type="button" onClick={login} style={styles.signInButton}>
+              Sign in with Google
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -370,8 +414,8 @@ const StashPage = () => {
     <div style={styles.container}>
       <div style={styles.content}>
         <div style={styles.header}>
-          <h1 style={styles.title}>My Stash</h1>
-          {!isDemoMode && (
+          <h1 style={styles.title}>{galleryMode ? "Kat's Stash" : 'My Stash'}</h1>
+          {!galleryMode && !isDemoMode && (
             <button 
               style={styles.addButton}
               onClick={() => setShowAddForm(true)}
@@ -559,21 +603,23 @@ const StashPage = () => {
                       <span style={styles.placeholderText}>🧶</span>
                     </div>
                   )}
-                  <div 
-                    style={styles.favoriteButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <FavoriteButton
-                      isFavorite={entry.yarn.is_favorite}
-                      onClick={() => handleToggleFavorite(entry.yarn.id, entry.yarn.is_favorite)}
-                    />
-                  </div>
+                  {!galleryMode && (
+                    <div 
+                      style={styles.favoriteButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <FavoriteButton
+                        isFavorite={entry.yarn.is_favorite}
+                        onClick={() => handleToggleFavorite(entry.yarn.id, entry.yarn.is_favorite)}
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 {/* Card content */}
@@ -707,12 +753,12 @@ const StashPage = () => {
         yarnId={selectedYarnId}
         yarnData={selectedYarnData}
         onProjectClick={(projectId) => {
-          // Navigate to projects page and open project detail modal
           setSelectedYarnId(null);
           setSelectedYarnData(null);
-          navigate('/projects', { state: { projectId } });
+          navigate(galleryMode ? '/gallery/projects' : '/projects', { state: { projectId } });
         }}
-        onFavoriteToggle={(yarnId, isFavorite) => {
+        readOnly={galleryMode}
+        onFavoriteToggle={galleryMode ? undefined : ((yarnId, isFavorite) => {
           // Update stash state when favorite is toggled in modal
           setStash(prevStash =>
             prevStash.map(entry =>
@@ -731,7 +777,7 @@ const StashPage = () => {
           if (selectedYarnData && selectedYarnData.id === yarnId) {
             setSelectedYarnData({ ...selectedYarnData, is_favorite: isFavorite });
           }
-        }}
+        })}
         onUpdate={loadStash}
       />
     </div>
@@ -850,6 +896,27 @@ const styles = {
     backgroundColor: theme.colors.errorBackground,
     borderRadius: theme.borderRadius.md,
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  signInPrompt: {
+    textAlign: 'center',
+    padding: '3rem 2rem',
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  signInText: {
+    margin: '0 0 1.5rem',
+    fontSize: theme.typography.fontSize.lg,
+  },
+  signInButton: {
+    padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+    borderRadius: theme.borderRadius.lg,
+    border: `1px solid ${theme.colors.primary}`,
+    backgroundColor: theme.colors.primary,
+    color: theme.colors.surface,
+    fontWeight: theme.typography.fontWeight.medium,
+    cursor: 'pointer',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: 'inherit',
   },
   emptyState: {
     textAlign: 'center',

@@ -13,6 +13,10 @@ import {
   getYarn, 
   getProjectsByYarn, 
   getProjectsByYarnId,
+  getShowcaseYarn,
+  getShowcaseStashEntry,
+  getShowcaseProjectsByYarnId,
+  getShowcaseProjectsByYarn,
   getCareInstructionOptions, 
   getColorOptions,
   getYarnWeightOptions,
@@ -32,7 +36,7 @@ import FavoriteButton from './FavoriteButton';
 import Select from './Select';
 import { theme } from '../../styles/theme';
 
-const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, onFavoriteToggle, onUpdate, onDelete }) => {
+const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, onFavoriteToggle, onUpdate, onDelete, readOnly = false }) => {
   const [yarn, setYarn] = useState(null);
   const [projects, setProjects] = useState([]);
   const [projectsUsingThisColor, setProjectsUsingThisColor] = useState([]);
@@ -203,7 +207,7 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
     
     try {
       setStashLoading(true);
-      const stashEntry = await getStashEntry(yarnId);
+      const stashEntry = await (readOnly ? getShowcaseStashEntry(yarnId) : getStashEntry(yarnId));
       setStashQuantity(stashEntry?.total_grams_owned || 0);
     } catch (err) {
       // If stash entry doesn't exist (404), set to 0
@@ -226,7 +230,7 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
       // Always fetch fresh data (like ProjectDetailModal does)
       let yarnToUse = null;
       if (yarnId) {
-        const data = await getYarn(yarnId);
+        const data = await (readOnly ? getShowcaseYarn(yarnId) : getYarn(yarnId));
         setYarn(data);
         yarnToUse = data;
       } else if (yarnData) {
@@ -257,10 +261,9 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
       // Load projects that use this yarn (by brand and yarn name, color insensitive)
       if (yarnToUse && yarnToUse.brand_name && yarnToUse.yarn_name) {
         try {
-          const projectData = await getProjectsByYarn(
-            yarnToUse.brand_name,
-            yarnToUse.yarn_name
-          );
+          const projectData = readOnly
+            ? await getShowcaseProjectsByYarn(yarnToUse.brand_name, yarnToUse.yarn_name)
+            : await getProjectsByYarn(yarnToUse.brand_name, yarnToUse.yarn_name);
           setProjects(projectData || []);
         } catch (err) {
           // If no projects found or error, just set empty array
@@ -274,7 +277,9 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
       // Load projects that use THIS exact yarn_id (color-specific) for deletion safety
       if (yarnToUse && yarnToUse.id) {
         try {
-          const exactProjects = await getProjectsByYarnId(yarnToUse.id);
+          const exactProjects = readOnly
+            ? await getShowcaseProjectsByYarnId(yarnToUse.id)
+            : await getProjectsByYarnId(yarnToUse.id);
           setProjectsUsingThisColor(exactProjects || []);
         } catch (err) {
           // If this fails, fail closed for delete by treating as "unknown"
@@ -822,8 +827,8 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
 
   if (!isOpen) return null;
 
-  // Prepare header actions for the modal
-  const headerActions = yarn && !isEditing ? (
+  // Prepare header actions for the modal (none when read-only/gallery)
+  const headerActions = yarn && !isEditing && !readOnly ? (
     <>
       {!isDemoMode && (
         <>
@@ -1312,50 +1317,52 @@ const YarnDetailModal = ({ isOpen, onClose, yarnId, yarnData, onProjectClick, on
             </div>
           </div>
 
-          {/* Stash Management */}
+          {/* Stash: quantity only when read-only, full add/subtract when not */}
           <div style={styles.section}>
             <div style={styles.stashInfo}>
               <div style={styles.stashQuantity}>
                 <strong>Current Quantity:</strong> {stashLoading ? 'Loading...' : `${stashQuantity.toFixed(1)}g`}
               </div>
-              <div style={styles.stashManagement}>
-                <div style={styles.stashControls}>
-                  <Select
-                    value={stashActionType}
-                    onChange={(e) => setStashActionType(e.target.value)}
-                    options={[
-                      { value: 'add', label: 'Add' },
-                      { value: 'subtract', label: 'Subtract' },
-                    ]}
-                    style={{ width: '100px' }}
-                  />
-                  <input
-                    type="number"
-                    step={stashUnit === 'skeins' ? '1' : '0.1'}
-                    min="0"
-                    value={stashAmount}
-                    onChange={(e) => setStashAmount(e.target.value)}
-                    placeholder="Amount"
-                    style={styles.stashInput}
-                  />
-                  <Select
-                    value={stashUnit}
-                    onChange={(e) => setStashUnit(e.target.value)}
-                    options={[
-                      { value: 'grams', label: 'Grams' },
-                      { value: 'skeins', label: 'Skeins' },
-                    ]}
-                    style={{ width: '100px' }}
-                  />
-                  <button
-                    onClick={handleStashAction}
-                    style={styles.stashButton}
-                    disabled={!stashAmount || parseFloat(stashAmount) <= 0}
-                  >
-                    {stashActionType === 'add' ? '+' : '-'}
-                  </button>
+              {!readOnly && (
+                <div style={styles.stashManagement}>
+                  <div style={styles.stashControls}>
+                    <Select
+                      value={stashActionType}
+                      onChange={(e) => setStashActionType(e.target.value)}
+                      options={[
+                        { value: 'add', label: 'Add' },
+                        { value: 'subtract', label: 'Subtract' },
+                      ]}
+                      style={{ width: '100px' }}
+                    />
+                    <input
+                      type="number"
+                      step={stashUnit === 'skeins' ? '1' : '0.1'}
+                      min="0"
+                      value={stashAmount}
+                      onChange={(e) => setStashAmount(e.target.value)}
+                      placeholder="Amount"
+                      style={styles.stashInput}
+                    />
+                    <Select
+                      value={stashUnit}
+                      onChange={(e) => setStashUnit(e.target.value)}
+                      options={[
+                        { value: 'grams', label: 'Grams' },
+                        { value: 'skeins', label: 'Skeins' },
+                      ]}
+                      style={{ width: '100px' }}
+                    />
+                    <button
+                      onClick={handleStashAction}
+                      style={styles.stashButton}
+                      disabled={!stashAmount || parseFloat(stashAmount) <= 0}
+                    >
+                      {stashActionType === 'add' ? '+' : '-'}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

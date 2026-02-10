@@ -26,41 +26,25 @@ class StashService:
     """
     
     @staticmethod
-    def get_stash_entry(db: Session, yarn_id: int) -> Optional[StashEntry]:
+    def get_stash_entry(db: Session, user_id: int, yarn_id: int) -> Optional[StashEntry]:
         """
-        Get stash entry for a specific yarn.
-        
-        Args:
-            db: Database session
-            yarn_id: ID of the yarn
-        
-        Returns:
-            StashEntry if found, None otherwise
+        Get stash entry for a specific yarn, only if that yarn belongs to the user.
         """
+        yarn = YarnService.get_yarn(db, yarn_id, user_id)
+        if not yarn:
+            return None
         return db.query(StashEntry).filter(StashEntry.yarn_id == yarn_id).first()
     
     @staticmethod
-    def get_or_create_stash_entry(db: Session, yarn_id: int) -> StashEntry:
+    def get_or_create_stash_entry(db: Session, user_id: int, yarn_id: int) -> StashEntry:
         """
-        Get existing stash entry or create a new one with 0g.
-        
-        This is a helper method to ensure stash entries exist when needed.
-        
-        Args:
-            db: Database session
-            yarn_id: ID of the yarn
-        
-        Returns:
-            StashEntry (existing or newly created)
+        Get existing stash entry or create a new one with 0g. Yarn must belong to user.
         """
-        stash_entry = StashService.get_stash_entry(db, yarn_id)
+        yarn = YarnService.get_yarn(db, yarn_id, user_id)
+        if not yarn:
+            raise ValueError(f"Yarn with id {yarn_id} does not exist or does not belong to you")
+        stash_entry = db.query(StashEntry).filter(StashEntry.yarn_id == yarn_id).first()
         if not stash_entry:
-            # Verify yarn exists
-            yarn = YarnService.get_yarn(db, yarn_id)
-            if not yarn:
-                raise ValueError(f"Yarn with id {yarn_id} does not exist")
-            
-            # Create new stash entry with 0g
             stash_entry = StashEntry(yarn_id=yarn_id, total_grams_owned=0.0)
             db.add(stash_entry)
             db.commit()
@@ -68,7 +52,7 @@ class StashService:
         return stash_entry
     
     @staticmethod
-    def add_yarn_by_grams(db: Session, yarn_id: int, grams: float) -> StashEntry:
+    def add_yarn_by_grams(db: Session, user_id: int, yarn_id: int, grams: float) -> StashEntry:
         """
         Add yarn to stash by specifying grams.
         
@@ -89,14 +73,14 @@ class StashService:
         if grams < 0:
             raise ValueError("Grams must be positive")
         
-        stash_entry = StashService.get_or_create_stash_entry(db, yarn_id)
+        stash_entry = StashService.get_or_create_stash_entry(db, user_id, yarn_id)
         stash_entry.total_grams_owned += grams
         db.commit()
         db.refresh(stash_entry)
         return stash_entry
     
     @staticmethod
-    def add_yarn_by_skeins(db: Session, yarn_id: int, num_skeins: int) -> StashEntry:
+    def add_yarn_by_skeins(db: Session, user_id: int, yarn_id: int, num_skeins: int) -> StashEntry:
         """
         Add yarn to stash by specifying number of skeins.
         
@@ -117,19 +101,14 @@ class StashService:
         if num_skeins < 0:
             raise ValueError("Number of skeins must be positive")
         
-        # Get yarn to find grams per skein
-        yarn = YarnService.get_yarn(db, yarn_id)
+        yarn = YarnService.get_yarn(db, yarn_id, user_id)
         if not yarn:
-            raise ValueError(f"Yarn with id {yarn_id} does not exist")
-        
-        # Calculate grams to add
+            raise ValueError(f"Yarn with id {yarn_id} does not exist or does not belong to you")
         grams_to_add = num_skeins * yarn.grams_per_skein
-        
-        # Use the grams method to add
-        return StashService.add_yarn_by_grams(db, yarn_id, grams_to_add)
+        return StashService.add_yarn_by_grams(db, user_id, yarn_id, grams_to_add)
     
     @staticmethod
-    def use_yarn(db: Session, yarn_id: int, grams: float) -> StashEntry:
+    def use_yarn(db: Session, user_id: int, yarn_id: int, grams: float) -> StashEntry:
         """
         Deduct yarn from stash (when used in a project).
         
@@ -150,9 +129,9 @@ class StashService:
         if grams < 0:
             raise ValueError("Grams must be positive")
         
-        stash_entry = StashService.get_stash_entry(db, yarn_id)
+        stash_entry = StashService.get_stash_entry(db, user_id, yarn_id)
         if not stash_entry:
-            raise ValueError(f"No stash entry found for yarn_id {yarn_id}")
+            raise ValueError(f"No stash entry found for yarn_id {yarn_id} or yarn does not belong to you")
         
         if stash_entry.total_grams_owned < grams:
             raise ValueError(
@@ -166,7 +145,7 @@ class StashService:
         return stash_entry
     
     @staticmethod
-    def set_stash_quantity(db: Session, yarn_id: int, grams: float) -> StashEntry:
+    def set_stash_quantity(db: Session, user_id: int, yarn_id: int, grams: float) -> StashEntry:
         """
         Set stash quantity to a specific amount.
         
@@ -187,48 +166,36 @@ class StashService:
         if grams < 0:
             raise ValueError("Grams cannot be negative")
         
-        stash_entry = StashService.get_or_create_stash_entry(db, yarn_id)
+        stash_entry = StashService.get_or_create_stash_entry(db, user_id, yarn_id)
         stash_entry.total_grams_owned = grams
         db.commit()
         db.refresh(stash_entry)
-        
         return stash_entry
     
     @staticmethod
-    def get_all_stash(db: Session) -> list[StashEntry]:
-        """
-        Get all stash entries.
-        
-        Returns all stash entries, including those with 0g.
-        
-        Args:
-            db: Database session
-        
-        Returns:
-            List of all StashEntry objects
-        """
-        return db.query(StashEntry).all()
+    def get_all_stash(db: Session, user_id: int) -> list[StashEntry]:
+        """Get all stash entries for yarns belonging to the user."""
+        return (
+            db.query(StashEntry)
+            .join(Yarn, StashEntry.yarn_id == Yarn.id)
+            .filter(Yarn.user_id == user_id)
+            .all()
+        )
     
     @staticmethod
-    def get_stash_with_yarn_info(db: Session) -> list[dict]:
+    def get_stash_with_yarn_info(db: Session, user_id: int) -> list[dict]:
         """
-        Get all yarns with their stash entry information.
-        
-        This includes ALL yarns, even those without stash entries (shows 0g).
-        Since each yarn can only have one stash entry (unique constraint), we query
-        all yarns and eagerly load their stash_entries relationship to avoid N+1 queries.
-        
-        Args:
-            db: Database session
-        
-        Returns:
-            List of dictionaries containing stash and yarn information
+        Get all yarns for the user with their stash entry information.
         """
         from sqlalchemy.orm import joinedload
-        from app.models.yarn import Yarn
         
-        # Get all yarns with stash entries eagerly loaded (LEFT JOIN)
-        yarns = db.query(Yarn).options(joinedload(Yarn.stash_entries)).all()
+        # Get all user's yarns with stash entries eagerly loaded
+        yarns = (
+            db.query(Yarn)
+            .filter(Yarn.user_id == user_id)
+            .options(joinedload(Yarn.stash_entries))
+            .all()
+        )
         
         result = []
         for yarn in yarns:

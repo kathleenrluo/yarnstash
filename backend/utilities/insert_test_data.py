@@ -1,40 +1,42 @@
 """
-Script to insert test data into the database.
+Script to insert test data into the database (per user).
 
-Run this script to populate the database with sample yarns and projects
-for testing the frontend.
+Usage: python utilities/insert_test_data.py --email your@email.com
+
+The user must already exist (e.g. have signed in once with Google).
 """
 
+import argparse
 import os
 import sys
-from datetime import datetime
 
-# Adjust the path to import from the correct app directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(script_dir)
 sys.path.insert(0, backend_dir)
 
-from sqlalchemy.orm import Session
 from app.models.database import SessionLocal, init_db
+from app.models.user import User
 from app.services.yarn_service import YarnService
 from app.services.stash_service import StashService
 from app.services.project_service import ProjectService
 
-def insert_test_data():
-    """Insert 3 test yarns and 2 test projects."""
-    
-    # Initialize database
+
+def insert_test_data(email: str):
+    """Insert 3 test yarns and 2 test projects for the given user."""
     init_db()
-    
-    # Get database session
     db = SessionLocal()
-    
     try:
-        print("Inserting test data...")
-        
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            print(f"[ERROR] User not found: {email}. Sign in with Google once, then run this script.")
+            return
+        user_id = user.id
+        print(f"Inserting test data for {email} (user_id={user_id})...")
+
         # Create 3 test yarns
         yarn1 = YarnService.create_yarn(
             db=db,
+            user_id=user_id,
             brand_name="Caron",
             yarn_name="Simply Soft",
             color_name="Soft Pink",
@@ -58,6 +60,7 @@ def insert_test_data():
         
         yarn2 = YarnService.create_yarn(
             db=db,
+            user_id=user_id,
             brand_name="Red Heart",
             yarn_name="Super Saver",
             color_name="Cherry Red",
@@ -78,6 +81,7 @@ def insert_test_data():
         
         yarn3 = YarnService.create_yarn(
             db=db,
+            user_id=user_id,
             brand_name="Lion Brand",
             yarn_name="Wool-Ease",
             color_name="Fisherman",
@@ -99,14 +103,15 @@ def insert_test_data():
         print(f"[OK] Created yarn: {yarn3.brand_name} {yarn3.yarn_name}")
         
         # Add yarns to stash
-        StashService.add_yarn_by_grams(db, yarn1.id, 340)  # 2 skeins
-        StashService.add_yarn_by_grams(db, yarn2.id, 198)  # 1 skein
-        StashService.add_yarn_by_grams(db, yarn3.id, 170)  # 2 skeins
+        StashService.add_yarn_by_grams(db, user_id, yarn1.id, 340)
+        StashService.add_yarn_by_grams(db, user_id, yarn2.id, 198)
+        StashService.add_yarn_by_grams(db, user_id, yarn3.id, 170)
         print("[OK] Added yarns to stash")
-        
-        # Create 2 test projects
+
+        # Create 2 test projects (manual_care_instruction_ids required when no yarn_usage yet)
         project1 = ProjectService.create_project(
             db=db,
+            user_id=user_id,
             name="Pink Amigurumi Bear",
             description="A cute pink teddy bear made with Caron Simply Soft",
             notes="First amigurumi project!",
@@ -115,21 +120,22 @@ def insert_test_data():
             pattern_type="freehand",
             pattern_reference=None,
             tags=["amigurumi", "stuffed animal", "bear"],
-            is_favorite=True
+            is_favorite=True,
+            manual_care_instruction_ids=[1],
         )
-        
-        # Add yarn usage for project1
         ProjectService.add_yarn_usage(
             db=db,
             project_id=project1.id,
             yarn_id=yarn1.id,
             grams_used=85,
-            update_stash=True
+            user_id=user_id,
+            update_stash=True,
         )
         print(f"[OK] Created project: {project1.name}")
-        
+
         project2 = ProjectService.create_project(
             db=db,
+            user_id=user_id,
             name="Red Scarf",
             description="A warm red scarf for winter",
             notes="Quick project, took 2 days",
@@ -138,16 +144,16 @@ def insert_test_data():
             pattern_type="tutorial",
             pattern_reference="https://example.com/scarf-pattern",
             tags=["garment", "accessory", "scarf"],
-            is_favorite=False
+            is_favorite=False,
+            manual_care_instruction_ids=[1],
         )
-        
-        # Add yarn usage for project2
         ProjectService.add_yarn_usage(
             db=db,
             project_id=project2.id,
             yarn_id=yarn2.id,
             grams_used=150,
-            update_stash=True
+            user_id=user_id,
+            update_stash=True,
         )
         print(f"[OK] Created project: {project2.name}")
         
@@ -166,4 +172,7 @@ def insert_test_data():
         db.close()
 
 if __name__ == "__main__":
-    insert_test_data()
+    parser = argparse.ArgumentParser(description="Insert test yarns and projects for a user")
+    parser.add_argument("--email", required=True, help="User email (must have signed in once)")
+    args = parser.parse_args()
+    insert_test_data(args.email)

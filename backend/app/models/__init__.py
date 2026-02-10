@@ -9,6 +9,7 @@ from .database import Base, engine, get_db
 from .yarn import Yarn
 from .stash import StashEntry
 from .project import Project, ProjectYarnUsage
+from .user import User
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "StashEntry",
     "Project",
     "ProjectYarnUsage",
+    "User",
 ]

@@ -6,6 +6,7 @@
  */
 
 import axios from 'axios';
+import { getStoredToken } from '../context/AuthContext';
 
 // Base URL for the backend API
 // Use relative URL in production (when served from same domain), absolute in development
@@ -19,12 +20,29 @@ const apiClient = axios.create({
   },
 });
 
+// Attach JWT to requests when user is logged in
+apiClient.interceptors.request.use((config) => {
+  const token = getStoredToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Create axios instance for file uploads (multipart/form-data)
 const uploadClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'multipart/form-data',
   },
+});
+
+uploadClient.interceptors.request.use((config) => {
+  const token = getStoredToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 /**
@@ -356,6 +374,49 @@ export const setStashQuantity = async (yarnId, grams) => {
     grams,
   });
   return response.data;
+};
+
+// ==================== Showcase (Kat's Gallery) API — read-only, no auth ====================
+
+export const getShowcaseStash = async () => {
+  const response = await apiClient.get('/showcase/stash');
+  return response.data;
+};
+
+export const getShowcaseStashEntry = async (yarnId) => {
+  const response = await apiClient.get(`/showcase/stash/${yarnId}`);
+  return response.data;
+};
+
+export const getShowcaseYarn = async (yarnId) => {
+  const response = await apiClient.get(`/showcase/yarns/${yarnId}`);
+  return response.data;
+};
+
+export const getShowcaseProjects = async (skip = 0, limit = 100) => {
+  const response = await apiClient.get('/showcase/projects', {
+    params: { skip, limit },
+  });
+  return response.data;
+};
+
+export const getShowcaseProjectDetails = async (projectId) => {
+  const response = await apiClient.get(`/showcase/projects/${projectId}/details`);
+  return response.data;
+};
+
+export const getShowcaseProjectsByYarnId = async (yarnId) => {
+  const response = await apiClient.get('/showcase/projects/by-yarn-id', {
+    params: { yarn_id: yarnId },
+  });
+  return response.data.projects || [];
+};
+
+export const getShowcaseProjectsByYarn = async (brandName, yarnName) => {
+  const response = await apiClient.get('/showcase/projects/by-yarn', {
+    params: { brand_name: brandName, yarn_name: yarnName },
+  });
+  return response.data.projects || [];
 };
 
 // ==================== Projects API ====================

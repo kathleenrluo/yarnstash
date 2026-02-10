@@ -865,8 +865,8 @@ const AddProjectForm = ({ isOpen, onClose, onSuccess }) => {
             </label>
             <p style={styles.helpText}>
               {yarnUsage.length > 0 && yarnUsage.some(usage => usage.yarn_id && usage.grams_used)
-                ? 'Manual care instructions will override the calculated care instructions from yarns.'
-                : 'Required when no yarn usage is specified. Manual care instructions will override calculated care instructions from yarns.'}
+                ? 'Leave blank to have care instructions calculated from the yarns in this project.'
+                : 'Required when no yarns are attached. When you add yarns, leave this blank to have care instructions calculated from them.'}
             </p>
             <div style={styles.multiselect}>
               {careInstructionOptions.map(opt => (

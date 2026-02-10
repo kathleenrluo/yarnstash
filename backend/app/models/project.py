@@ -21,12 +21,16 @@ class Project(Base):
     
     Stores project metadata, pattern information, and computed care instructions.
     Yarn usage is tracked separately in ProjectYarnUsage.
+    Each project belongs to one user (user_id). Data is private per user.
     """
     
     __tablename__ = "projects"
     
     # Primary key
     id = Column(Integer, primary_key=True, index=True)
+    
+    # Owner: all queries filter by this
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Basic information
     name = Column(String(200), nullable=False, index=True)

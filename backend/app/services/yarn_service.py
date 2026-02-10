@@ -135,6 +135,7 @@ class YarnService:
     @staticmethod
     def create_yarn(
         db: Session,
+        user_id: int,
         brand_name: str,
         yarn_name: str,
         color_name: str,
@@ -150,10 +151,11 @@ class YarnService:
         is_favorite: bool = False,
     ) -> Yarn:
         """
-        Create a new yarn entry.
+        Create a new yarn entry for the given user.
         
         Args:
             db: Database session
+            user_id: Owner's user id
             brand_name: Brand of the yarn (e.g., "Red Heart")
             yarn_name: Name of the yarn line (e.g., "Super Saver")
             color_name: Color name (e.g., "Cherry Red")
@@ -174,8 +176,9 @@ class YarnService:
         Raises:
             ValueError: If a yarn with the same brand_name, yarn_name, and color_name already exists
         """
-        # Check for duplicate yarn (same brand, name, and color)
+        # Check for duplicate yarn (same brand, name, and color) for this user
         existing_yarn = db.query(Yarn).filter(
+            Yarn.user_id == user_id,
             Yarn.brand_name == brand_name,
             Yarn.yarn_name == yarn_name,
             Yarn.color_name == color_name
@@ -207,6 +210,7 @@ class YarnService:
             materials = []
         
         yarn = Yarn(
+            user_id=user_id,
             brand_name=brand_name,
             yarn_name=yarn_name,
             color_name=color_name,
@@ -227,201 +231,114 @@ class YarnService:
         db.refresh(yarn)
         
         # Automatically create a stash entry with 0g for the new yarn
-        # This ensures every yarn always has a stash entry, making them interchangeable
         from app.services.stash_service import StashService
-        StashService.get_or_create_stash_entry(db, yarn.id)
+        StashService.get_or_create_stash_entry(db, user_id, yarn.id)
         
         return yarn
     
     @staticmethod
-    def get_yarn(db: Session, yarn_id: int) -> Optional[Yarn]:
+    def get_yarn(db: Session, yarn_id: int, user_id: int) -> Optional[Yarn]:
         """
-        Get a yarn by ID.
+        Get a yarn by ID for the given user.
         
         Args:
             db: Database session
             yarn_id: ID of the yarn to retrieve
+            user_id: Owner's user id (must match)
         
         Returns:
-            Yarn if found, None otherwise
+            Yarn if found and owned by user, None otherwise
         """
-        return db.query(Yarn).filter(Yarn.id == yarn_id).first()
+        return db.query(Yarn).filter(Yarn.id == yarn_id, Yarn.user_id == user_id).first()
     
     @staticmethod
-    def get_all_yarns(db: Session, skip: int = 0, limit: int = 100) -> List[Yarn]:
+    def get_all_yarns(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Yarn]:
         """
-        Get all yarns with pagination.
-        
-        Args:
-            db: Database session
-            skip: Number of records to skip (for pagination)
-            limit: Maximum number of records to return
-        
-        Returns:
-            List of Yarn objects
+        Get all yarns for the given user with pagination.
         """
-        return db.query(Yarn).offset(skip).limit(limit).all()
+        return db.query(Yarn).filter(Yarn.user_id == user_id).offset(skip).limit(limit).all()
     
     @staticmethod
-    def get_yarns_by_brand(db: Session, brand_name: str) -> List[Yarn]:
-        """
-        Get all yarns from a specific brand.
-        
-        Useful for autocomplete functionality in the frontend.
-        
-        Args:
-            db: Database session
-            brand_name: Brand name to search for
-        
-        Returns:
-            List of Yarn objects from that brand
-        """
-        return db.query(Yarn).filter(Yarn.brand_name == brand_name).all()
+    def get_yarns_by_brand(db: Session, user_id: int, brand_name: str) -> List[Yarn]:
+        """Get all yarns from a specific brand for the given user."""
+        return db.query(Yarn).filter(Yarn.user_id == user_id, Yarn.brand_name == brand_name).all()
     
     @staticmethod
     def get_yarn_properties_by_brand_and_name(
-        db: Session, 
-        brand_name: str, 
+        db: Session,
+        user_id: int,
+        brand_name: str,
         yarn_name: str
     ) -> Optional[Yarn]:
         """
-        Get yarn properties by brand name and yarn name (ignoring color).
-        
-        Used to autocomplete form fields when adding a new color of an existing yarn.
-        Returns the first matching yarn (all colors of the same yarn have same properties).
-        
-        Args:
-            db: Database session
-            brand_name: Brand name (exact match)
-            yarn_name: Yarn name (exact match)
-        
-        Returns:
-            First Yarn object matching brand and name, or None if not found
+        Get yarn properties by brand name and yarn name (ignoring color) for the given user.
         """
         return db.query(Yarn).filter(
+            Yarn.user_id == user_id,
             Yarn.brand_name == brand_name,
             Yarn.yarn_name == yarn_name
         ).first()
     
     @staticmethod
-    def search_brands(db: Session, search_term: str) -> List[str]:
-        """
-        Search for brand names (for autocomplete).
-        
-        Returns unique brand names that match the search term.
-        
-        Args:
-            db: Database session
-            search_term: Partial brand name to search for
-        
-        Returns:
-            List of unique brand names (strings)
-        """
-        # Case-insensitive search
+    def search_brands(db: Session, user_id: int, search_term: str) -> List[str]:
+        """Search for brand names (for autocomplete) scoped to user."""
         yarns = db.query(Yarn.brand_name).filter(
+            Yarn.user_id == user_id,
             Yarn.brand_name.ilike(f"%{search_term}%")
         ).distinct().all()
         return [brand[0] for brand in yarns]
     
     @staticmethod
-    def search_yarn_names(db: Session, search_term: str, brand_name: Optional[str] = None) -> List[str]:
-        """
-        Search for yarn names (for autocomplete).
-        
-        Returns unique yarn names that match the search term.
-        If brand_name is provided, only returns yarn names for that brand.
-        
-        Args:
-            db: Database session
-            search_term: Partial yarn name to search for
-            brand_name: Optional brand name to filter by
-        
-        Returns:
-            List of unique yarn names (strings)
-        """
+    def search_yarn_names(db: Session, user_id: int, search_term: str, brand_name: Optional[str] = None) -> List[str]:
+        """Search for yarn names (for autocomplete) scoped to user."""
         query = db.query(Yarn.yarn_name).filter(
+            Yarn.user_id == user_id,
             Yarn.yarn_name.ilike(f"%{search_term}%")
         )
-        
         if brand_name:
             query = query.filter(Yarn.brand_name == brand_name)
-        
         yarns = query.distinct().all()
         return [name[0] for name in yarns]
     
     @staticmethod
-    def search_color_names(db: Session, search_term: str) -> List[str]:
-        """
-        Search for color names (for autocomplete).
-        
-        Returns unique color names that match the search term.
-        
-        Args:
-            db: Database session
-            search_term: Partial color name to search for
-        
-        Returns:
-            List of unique color names (strings)
-        """
+    def search_color_names(db: Session, user_id: int, search_term: str) -> List[str]:
+        """Search for color names (for autocomplete) scoped to user."""
         yarns = db.query(Yarn.color_name).filter(
+            Yarn.user_id == user_id,
             Yarn.color_name.ilike(f"%{search_term}%")
         ).distinct().all()
         return [color[0] for color in yarns]
     
     @staticmethod
-    def search_materials(db: Session, search_term: str) -> List[str]:
-        """
-        Search for individual materials (for autocomplete).
-        
-        Returns unique individual materials that match the search term.
-        Searches in the materials JSON array, not the full breakdown.
-        Case-insensitive search, returns materials in lowercase.
-        
-        Args:
-            db: Database session
-            search_term: Partial material name to search for (case-insensitive)
-        
-        Returns:
-            List of unique material names (strings, lowercase)
-        """
-        # Get all yarns with materials
+    def search_materials(db: Session, user_id: int, search_term: str) -> List[str]:
+        """Search for materials (for autocomplete) scoped to user."""
         yarns = db.query(Yarn.materials).filter(
+            Yarn.user_id == user_id,
             Yarn.materials.isnot(None)
         ).all()
-        
-        # Extract all materials and filter by search term (case-insensitive)
         all_materials = set()
         search_lower = search_term.lower()
-        
         for yarn_materials in yarns:
-            if yarn_materials[0]:  # Check if materials array exists
+            if yarn_materials[0]:
                 for material in yarn_materials[0]:
-                    # Materials are stored in lowercase, so compare directly
                     if search_lower in material.lower():
-                        all_materials.add(material.lower())  # Ensure lowercase
-        
+                        all_materials.add(material.lower())
         return sorted(list(all_materials))
     
     @staticmethod
     def update_yarn(
         db: Session,
         yarn_id: int,
+        user_id: int,
         **kwargs
     ) -> Optional[Yarn]:
         """
-        Update yarn properties.
-        
-        Only updates fields that are provided in kwargs.
-        
-        Args:
-            db: Database session
-            yarn_id: ID of yarn to update
-            **kwargs: Fields to update (e.g., brand_name="New Brand")
+        Update yarn properties. Only the owner can update.
         
         Returns:
-            Updated Yarn object, or None if not found
+            Updated Yarn object, or None if not found or not owned by user
         """
-        yarn = db.query(Yarn).filter(Yarn.id == yarn_id).first()
+        yarn = db.query(Yarn).filter(Yarn.id == yarn_id, Yarn.user_id == user_id).first()
         if not yarn:
             return None
         
@@ -478,29 +395,23 @@ class YarnService:
         return yarn
     
     @staticmethod
-    def delete_yarn(db: Session, yarn_id: int) -> bool:
+    def delete_yarn(db: Session, yarn_id: int, user_id: int) -> bool:
         """
-        Delete a yarn.
-        
-        Note: This will also delete associated stash entries due to CASCADE.
-        Cannot delete if yarn is used in any projects.
-        
-        Args:
-            db: Database session
-            yarn_id: ID of yarn to delete
-        
-        Returns:
-            True if deleted, False if not found
-        
-        Raises:
-            ValueError: If yarn is used in any projects
+        Delete a yarn. Only the owner can delete.
+        Cannot delete if yarn is used in any of the user's projects.
         """
-        yarn = db.query(Yarn).filter(Yarn.id == yarn_id).first()
+        yarn = db.query(Yarn).filter(Yarn.id == yarn_id, Yarn.user_id == user_id).first()
         if not yarn:
             return False
         
-        # Check if yarn is used in any projects
-        project_usages = db.query(ProjectYarnUsage).filter(ProjectYarnUsage.yarn_id == yarn_id).all()
+        # Check if yarn is used in any projects (only user's projects)
+        from app.models.project import Project
+        project_usages = (
+            db.query(ProjectYarnUsage)
+            .join(Project, Project.id == ProjectYarnUsage.project_id)
+            .filter(Project.user_id == user_id, ProjectYarnUsage.yarn_id == yarn_id)
+            .all()
+        )
         if project_usages:
             project_count = len(project_usages)
             raise ValueError(

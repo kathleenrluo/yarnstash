@@ -29,6 +29,7 @@ class ProjectService:
     @staticmethod
     def create_project(
         db: Session,
+        user_id: int,
         name: str,
         description: Optional[str] = None,
         notes: Optional[str] = None,
@@ -45,10 +46,11 @@ class ProjectService:
         yarn_usage: Optional[List[Dict]] = None,
     ) -> Project:
         """
-        Create a new project.
+        Create a new project for the given user.
         
         Args:
             db: Database session
+            user_id: Owner's user id
             name: Project name
             description: Project description (optional)
             notes: Project notes (optional)
@@ -88,6 +90,7 @@ class ProjectService:
                 raise ValueError(f"Invalid care instruction IDs: {invalid_ids}. Valid IDs are: {ALL_CARE_INSTRUCTIONS}")
         
         project = Project(
+            user_id=user_id,
             name=name,
             description=description,
             notes=notes,
@@ -115,52 +118,24 @@ class ProjectService:
         return project
     
     @staticmethod
-    def get_project(db: Session, project_id: int) -> Optional[Project]:
-        """
-        Get a project by ID.
-        
-        Args:
-            db: Database session
-            project_id: ID of the project
-        
-        Returns:
-            Project if found, None otherwise
-        """
-        return db.query(Project).filter(Project.id == project_id).first()
+    def get_project(db: Session, project_id: int, user_id: int) -> Optional[Project]:
+        """Get a project by ID only if it belongs to the user."""
+        return db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).first()
     
     @staticmethod
-    def get_all_projects(db: Session, skip: int = 0, limit: int = 100) -> List[Project]:
-        """
-        Get all projects with pagination.
-        
-        Args:
-            db: Database session
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-        
-        Returns:
-            List of Project objects
-        """
-        return db.query(Project).offset(skip).limit(limit).all()
+    def get_all_projects(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Project]:
+        """Get all projects for the given user with pagination."""
+        return db.query(Project).filter(Project.user_id == user_id).offset(skip).limit(limit).all()
     
     @staticmethod
     def update_project(
         db: Session,
         project_id: int,
+        user_id: int,
         **kwargs
     ) -> Optional[Project]:
-        """
-        Update project properties.
-        
-        Args:
-            db: Database session
-            project_id: ID of project to update
-            **kwargs: Fields to update
-        
-        Returns:
-            Updated Project object, or None if not found
-        """
-        project = db.query(Project).filter(Project.id == project_id).first()
+        """Update project properties. Only the owner can update."""
+        project = db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).first()
         if not project:
             return None
         
@@ -261,43 +236,20 @@ class ProjectService:
         project_id: int,
         yarn_id: int,
         grams_used: float,
+        user_id: int,
         update_stash: bool = True
     ) -> ProjectYarnUsage:
         """
-        Record yarn usage in a project.
-        
-        This method:
-        1. Creates a ProjectYarnUsage entry
-        2. Optionally deducts yarn from stash
-        3. Recomputes care instructions for the project
-        
-        Args:
-            db: Database session
-            project_id: ID of the project
-            yarn_id: ID of the yarn used
-            grams_used: Grams of yarn used
-            update_stash: Whether to deduct from stash (default: True)
-        
-        Returns:
-            Created ProjectYarnUsage object
-        
-        Raises:
-            ValueError: If project or yarn doesn't exist, or insufficient stash
+        Record yarn usage in a project. Project and yarn must belong to the same user.
         """
-        # Verify project exists
-        project = ProjectService.get_project(db, project_id)
+        project = ProjectService.get_project(db, project_id, user_id)
         if not project:
-            raise ValueError(f"Project with id {project_id} does not exist")
-        
-        # Verify yarn exists
-        yarn = db.query(Yarn).filter(Yarn.id == yarn_id).first()
+            raise ValueError(f"Project with id {project_id} does not exist or does not belong to you")
+        yarn = db.query(Yarn).filter(Yarn.id == yarn_id, Yarn.user_id == user_id).first()
         if not yarn:
-            raise ValueError(f"Yarn with id {yarn_id} does not exist")
-        
-        # Deduct from stash if requested and grams_used > 0
-        # If grams_used is 0, it means "unknown" so we don't update stash
+            raise ValueError(f"Yarn with id {yarn_id} does not exist or does not belong to you")
         if update_stash and grams_used > 0:
-            StashService.use_yarn(db, yarn_id, grams_used)
+            StashService.use_yarn(db, user_id, yarn_id, grams_used)
         
         # Create usage record
         usage = ProjectYarnUsage(
@@ -318,38 +270,22 @@ class ProjectService:
     def remove_yarn_usage(
         db: Session,
         project_id: int,
-        usage_id: int
+        usage_id: int,
+        user_id: int
     ) -> bool:
-        """
-        Remove yarn usage from a project.
-        
-        Note: This does NOT restore stash - yarn that was used remains used.
-        
-        Args:
-            db: Database session
-            project_id: ID of the project
-            usage_id: ID of the ProjectYarnUsage record to remove
-        
-        Returns:
-            True if removed, False if not found
-        
-        Raises:
-            ValueError: If usage doesn't belong to the project
-        """
+        """Remove yarn usage from a project. Project must belong to user."""
+        project = ProjectService.get_project(db, project_id, user_id)
+        if not project:
+            return False
         usage = db.query(ProjectYarnUsage).filter(
             ProjectYarnUsage.id == usage_id,
             ProjectYarnUsage.project_id == project_id
         ).first()
-        
         if not usage:
             return False
-        
         db.delete(usage)
         db.commit()
-        
-        # Recompute care instructions
         ProjectService._recompute_care_instructions(db, project_id)
-        
         return True
     
     @staticmethod
@@ -357,74 +293,37 @@ class ProjectService:
         db: Session,
         project_id: int,
         usage_id: int,
+        user_id: int,
         grams_used: Optional[float] = None,
         update_stash: Optional[bool] = None
     ) -> Optional[ProjectYarnUsage]:
-        """
-        Update yarn usage in a project.
-        
-        This can update the grams used and optionally adjust stash.
-        If update_stash is True and grams_used changes, stash will be adjusted.
-        
-        Args:
-            db: Database session
-            project_id: ID of the project
-            usage_id: ID of the ProjectYarnUsage record to update
-            grams_used: New grams used (optional)
-            update_stash: Whether to update stash (optional, only used if grams_used changes)
-        
-        Returns:
-            Updated ProjectYarnUsage object, or None if not found
-        
-        Raises:
-            ValueError: If usage doesn't belong to the project, or insufficient stash
-        """
+        """Update yarn usage in a project. Project must belong to user."""
+        project = ProjectService.get_project(db, project_id, user_id)
+        if not project:
+            return None
         usage = db.query(ProjectYarnUsage).filter(
             ProjectYarnUsage.id == usage_id,
             ProjectYarnUsage.project_id == project_id
         ).first()
-        
         if not usage:
             return None
-        
-        # If grams_used is being updated, adjust stash based on update_stash flag
         if grams_used is not None and grams_used != usage.grams_used:
             if update_stash is True:
-                # If update_stash is True: Adjust stash by exact difference (original - new)
-                difference = usage.grams_used - grams_used  # original - new
+                difference = usage.grams_used - grams_used
                 if difference > 0:
-                    # Adding back to stash (e.g., 10g -> 5g adds 5g back, 10g -> 0g adds 10g back)
-                    StashService.add_yarn_by_grams(db, usage.yarn_id, difference)
+                    StashService.add_yarn_by_grams(db, user_id, usage.yarn_id, difference)
                 elif difference < 0:
-                    # Deducting from stash (e.g., 5g -> 10g deducts 5g)
-                    StashService.use_yarn(db, usage.yarn_id, abs(difference))
-                # If difference == 0, no change needed
-            # If update_stash is False: Do nothing to stash (no changes at all)
-        
-        # Update grams_used if provided
+                    StashService.use_yarn(db, user_id, usage.yarn_id, abs(difference))
         if grams_used is not None:
             usage.grams_used = grams_used
-        
         db.commit()
         db.refresh(usage)
-        
-        # Recompute care instructions
         ProjectService._recompute_care_instructions(db, project_id)
-        
         return usage
     
     @staticmethod
     def _recompute_care_instructions(db: Session, project_id: int) -> None:
-        """
-        Recompute care instructions for a project based on all yarns used.
-        
-        This is called automatically when yarn usage changes.
-        Only recomputes if manual care instructions are not set.
-        
-        Args:
-            db: Database session
-            project_id: ID of the project
-        """
+        """Recompute care instructions for a project based on all yarns used."""
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return
@@ -458,22 +357,9 @@ class ProjectService:
         db.commit()
     
     @staticmethod
-    def delete_project(db: Session, project_id: int) -> bool:
-        """
-        Delete a project.
-        
-        Note: This will also delete associated yarn usage records due to CASCADE.
-        However, stash is NOT restored - yarn that was used remains used.
-        Also deletes all associated image files from the uploads folder.
-        
-        Args:
-            db: Database session
-            project_id: ID of project to delete
-        
-        Returns:
-            True if deleted, False if not found
-        """
-        project = db.query(Project).filter(Project.id == project_id).first()
+    def delete_project(db: Session, project_id: int, user_id: int) -> bool:
+        """Delete a project. Only the owner can delete."""
+        project = db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).first()
         if not project:
             return False
         
@@ -496,20 +382,9 @@ class ProjectService:
         return True
     
     @staticmethod
-    def get_project_with_yarns(db: Session, project_id: int) -> Optional[Dict]:
-        """
-        Get a project with all its yarn usage information.
-        
-        This is useful for the frontend to display project details.
-        
-        Args:
-            db: Database session
-            project_id: ID of the project
-        
-        Returns:
-            Dictionary containing project and yarn usage info, or None
-        """
-        project = db.query(Project).filter(Project.id == project_id).first()
+    def get_project_with_yarns(db: Session, project_id: int, user_id: int) -> Optional[Dict]:
+        """Get a project with all its yarn usage information. Project must belong to user."""
+        project = db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).first()
         if not project:
             return None
         
@@ -553,41 +428,23 @@ class ProjectService:
         }
 
     @staticmethod
-    def get_projects_by_yarn_name(db: Session, brand_name: str, yarn_name: str) -> List[Dict]:
-        """
-        Get all projects that use a yarn with the given brand and yarn name (color insensitive).
-        
-        Args:
-            db: Database session
-            brand_name: Brand name of the yarn
-            yarn_name: Yarn name (color insensitive)
-        
-        Returns:
-            List of project dictionaries with basic info
-        """
-        # Find all yarns with matching brand and yarn name (any color)
+    def get_projects_by_yarn_name(db: Session, user_id: int, brand_name: str, yarn_name: str) -> List[Dict]:
+        """Get all projects (for this user) that use a yarn with the given brand and yarn name."""
         yarns = db.query(Yarn).filter(
+            Yarn.user_id == user_id,
             Yarn.brand_name.ilike(f"%{brand_name}%"),
             Yarn.yarn_name.ilike(f"%{yarn_name}%")
         ).all()
-        
         if not yarns:
             return []
-        
         yarn_ids = [yarn.id for yarn in yarns]
-        
-        # Find all projects that use any of these yarns
         project_usages = db.query(ProjectYarnUsage).filter(
             ProjectYarnUsage.yarn_id.in_(yarn_ids)
         ).all()
-        
         project_ids = list(set([usage.project_id for usage in project_usages]))
-        
         if not project_ids:
             return []
-        
-        # Get project details
-        projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+        projects = db.query(Project).filter(Project.user_id == user_id, Project.id.in_(project_ids)).all()
         
         return [
             {
@@ -603,28 +460,16 @@ class ProjectService:
         ]
 
     @staticmethod
-    def get_projects_by_yarn_id(db: Session, yarn_id: int) -> List[Dict]:
-        """
-        Get all projects that use a specific yarn by yarn_id (color-specific).
-
-        Args:
-            db: Database session
-            yarn_id: ID of the yarn
-
-        Returns:
-            List of project dictionaries with basic info
-        """
-        project_usages = (
-            db.query(ProjectYarnUsage)
-            .filter(ProjectYarnUsage.yarn_id == yarn_id)
-            .all()
-        )
-
+    def get_projects_by_yarn_id(db: Session, user_id: int, yarn_id: int) -> List[Dict]:
+        """Get all projects (for this user) that use a specific yarn by yarn_id."""
+        yarn = db.query(Yarn).filter(Yarn.id == yarn_id, Yarn.user_id == user_id).first()
+        if not yarn:
+            return []
+        project_usages = db.query(ProjectYarnUsage).filter(ProjectYarnUsage.yarn_id == yarn_id).all()
         project_ids = list(set([usage.project_id for usage in project_usages]))
         if not project_ids:
             return []
-
-        projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+        projects = db.query(Project).filter(Project.user_id == user_id, Project.id.in_(project_ids)).all()
         return [
             {
                 "id": project.id,

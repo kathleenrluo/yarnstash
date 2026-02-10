@@ -2,7 +2,8 @@
 Database Configuration and Session Management
 
 This module sets up SQLAlchemy database connection and session management.
-Uses SQLite for local development, can be easily switched to PostgreSQL later.
+- If DATABASE_URL is set (e.g. postgresql://...): uses PostgreSQL (requires psycopg2-binary).
+- If DATABASE_URL is not set: uses SQLite (backend/yarn_stash.db).
 """
 
 from sqlalchemy import create_engine
@@ -18,18 +19,18 @@ from pathlib import Path
 # Get the backend directory (parent of app/models)
 BACKEND_DIR = Path(__file__).parent.parent.parent
 
-# Always use the same database file
-# DEMO_MODE now only controls read-only behavior, not which database to use
-DB_FILENAME = "yarn_stash.db"
-DB_PATH = BACKEND_DIR / DB_FILENAME
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Use DATABASE_URL if set (e.g. PostgreSQL on Railway), otherwise SQLite
+_env_url = os.getenv("DATABASE_URL")
+if _env_url:
+    SQLALCHEMY_DATABASE_URL = _env_url.replace("postgres://", "postgresql://", 1)  # Railway may give postgres://
+    _connect_args = {}
+else:
+    DB_FILENAME = "yarn_stash.db"
+    DB_PATH = BACKEND_DIR / DB_FILENAME
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+    _connect_args = {"check_same_thread": False}  # SQLite-specific
 
-# Create database engine
-# connect_args needed for SQLite to allow multiple threads
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}  # SQLite-specific setting
-)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=_connect_args)
 
 # Session factory - creates database sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

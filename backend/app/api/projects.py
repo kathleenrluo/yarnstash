@@ -3,12 +3,15 @@ Project API Endpoints
 
 REST API endpoints for managing projects.
 All business logic is delegated to ProjectService.
+Requires authentication; projects are scoped to the current user.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from app.models.database import get_db
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.services.project_service import ProjectService
 from app.api.schemas import (
     ProjectCreate,
@@ -22,28 +25,22 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 @router.post("/", response_model=ProjectResponse, status_code=201)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
-    """
-    Create a new project.
-    
-    Optionally accepts yarn_usage to attach yarns during creation.
-    If yarn_usage is provided, yarns will be attached and stash will be updated.
-    """
+def create_project(
+    project: ProjectCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new project for the current user. Optionally attach yarn_usage at creation."""
     try:
-        # Convert yarn_usage to list of dicts for service
         yarn_usage_list = None
         if project.yarn_usage:
             yarn_usage_list = [
-                {
-                    'yarn_id': usage.yarn_id,
-                    'grams_used': usage.grams_used,
-                    'update_stash': usage.update_stash
-                }
-                for usage in project.yarn_usage
+                {'yarn_id': u.yarn_id, 'grams_used': u.grams_used, 'update_stash': u.update_stash}
+                for u in project.yarn_usage
             ]
-        
         created_project = ProjectService.create_project(
             db=db,
+            user_id=current_user.id,
             name=project.name,
             description=project.description,
             notes=project.notes,
@@ -59,8 +56,6 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
             manual_care_instruction_ids=project.manual_care_instruction_ids,
             yarn_usage=yarn_usage_list,
         )
-        
-        # If yarn usage is provided, add it now
         if project.yarn_usage:
             for usage in project.yarn_usage:
                 try:
@@ -69,12 +64,11 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
                         project_id=created_project.id,
                         yarn_id=usage.yarn_id,
                         grams_used=usage.grams_used,
-                        update_stash=usage.update_stash
+                        user_id=current_user.id,
+                        update_stash=usage.update_stash,
                     )
                 except ValueError as e:
-                    # If yarn usage fails, log but don't fail the entire project creation
                     print(f"Warning: Failed to add yarn usage for yarn_id {usage.yarn_id}: {e}")
-        
         return created_project
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -84,33 +78,28 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
 def get_all_projects(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Get all projects with pagination.
-    """
-    return ProjectService.get_all_projects(db=db, skip=skip, limit=limit)
+    """Get all projects for the current user with pagination."""
+    return ProjectService.get_all_projects(db=db, user_id=current_user.id, skip=skip, limit=limit)
 
 
 @router.get("/by-yarn")
 def get_projects_by_yarn(
     brand_name: str = Query(..., description="Brand name of the yarn"),
     yarn_name: str = Query(..., description="Yarn name (color insensitive)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Get all projects that use a yarn with the given brand and yarn name.
-    
-    This is color-insensitive - it returns all projects using any color
-    of the specified yarn.
-    """
+    """Get projects that use the given brand/yarn name (current user only)."""
     try:
         projects = ProjectService.get_projects_by_yarn_name(
             db=db,
+            user_id=current_user.id,
             brand_name=brand_name,
-            yarn_name=yarn_name
+            yarn_name=yarn_name,
         )
-        # Return empty list instead of 404 - it's valid to have no projects using a yarn
         return {"projects": projects or []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
@@ -119,37 +108,38 @@ def get_projects_by_yarn(
 @router.get("/by-yarn-id")
 def get_projects_by_yarn_id(
     yarn_id: int = Query(..., ge=1, description="Yarn ID (color-specific)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Get all projects that use a specific yarn by yarn_id (color-specific).
-    """
+    """Get projects that use the given yarn_id (current user only)."""
     try:
-        projects = ProjectService.get_projects_by_yarn_id(db=db, yarn_id=yarn_id)
+        projects = ProjectService.get_projects_by_yarn_id(db=db, user_id=current_user.id, yarn_id=yarn_id)
         return {"projects": projects or []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific project by ID.
-    """
-    project = ProjectService.get_project(db=db, project_id=project_id)
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a specific project by ID (must belong to current user)."""
+    project = ProjectService.get_project(db=db, project_id=project_id, user_id=current_user.id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
 
 @router.get("/{project_id}/details")
-def get_project_with_yarns(project_id: int, db: Session = Depends(get_db)):
-    """
-    Get a project with all its yarn usage information.
-    
-    This includes details about which yarns were used and how much.
-    """
-    project_data = ProjectService.get_project_with_yarns(db=db, project_id=project_id)
+def get_project_with_yarns(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a project with yarn usage details (must belong to current user)."""
+    project_data = ProjectService.get_project_with_yarns(db=db, project_id=project_id, user_id=current_user.id)
     if not project_data:
         raise HTTPException(status_code=404, detail="Project not found")
     return project_data
@@ -159,33 +149,23 @@ def get_project_with_yarns(project_id: int, db: Session = Depends(get_db)):
 def update_project(
     project_id: int,
     project_update: ProjectUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Update project properties.
-    
-    Only provided fields will be updated. All fields are optional.
-    """
+    """Update project properties (owner only)."""
     try:
-        # Convert Pydantic model to dict, excluding None values
         update_data = project_update.model_dump(exclude_unset=True)
-        
-        # Normalize empty strings to None for date_completed
         if 'date_completed' in update_data and update_data['date_completed'] == '':
             update_data['date_completed'] = None
-        
-        project = ProjectService.update_project(db=db, project_id=project_id, **update_data)
+        project = ProjectService.update_project(db=db, project_id=project_id, user_id=current_user.id, **update_data)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         return project
     except ValueError as e:
-        # Catch validation errors (e.g., invalid date format, material breakdown)
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        # Catch any other unexpected errors
         import traceback
         print(f"Unexpected error updating project {project_id}: {e}")
         print(traceback.format_exc())
@@ -196,25 +176,18 @@ def update_project(
 def add_yarn_usage(
     project_id: int,
     usage: AddYarnUsage,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Record yarn usage in a project.
-    
-    This endpoint:
-    1. Records the yarn usage
-    2. Optionally deducts yarn from stash (default: True)
-    3. Recomputes care instructions for the project
-    
-    This is the recommended way to track yarn usage in projects.
-    """
+    """Record yarn usage in a project (project and yarn must belong to current user)."""
     try:
         usage_record = ProjectService.add_yarn_usage(
             db=db,
             project_id=project_id,
             yarn_id=usage.yarn_id,
             grams_used=usage.grams_used,
-            update_stash=usage.update_stash
+            user_id=current_user.id,
+            update_stash=usage.update_stash,
         )
         return {
             "message": "Yarn usage recorded successfully",
@@ -231,17 +204,15 @@ def add_yarn_usage(
 def remove_yarn_usage(
     project_id: int,
     usage_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Remove yarn usage from a project.
-    
-    Note: This does NOT restore stash - yarn that was used remains used.
-    """
+    """Remove yarn usage from a project (owner only)."""
     success = ProjectService.remove_yarn_usage(
         db=db,
         project_id=project_id,
-        usage_id=usage_id
+        usage_id=usage_id,
+        user_id=current_user.id,
     )
     if not success:
         raise HTTPException(status_code=404, detail="Yarn usage not found")
@@ -252,20 +223,18 @@ def update_yarn_usage(
     project_id: int,
     usage_id: int,
     usage_update: UpdateYarnUsage,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Update yarn usage in a project.
-    
-    Can update grams used and optionally adjust stash.
-    """
+    """Update yarn usage in a project (owner only)."""
     try:
         updated_usage = ProjectService.update_yarn_usage(
             db=db,
             project_id=project_id,
             usage_id=usage_id,
+            user_id=current_user.id,
             grams_used=usage_update.grams_used,
-            update_stash=usage_update.update_stash
+            update_stash=usage_update.update_stash,
         )
         if not updated_usage:
             raise HTTPException(status_code=404, detail="Yarn usage not found")
@@ -281,13 +250,12 @@ def update_yarn_usage(
 
 
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a project.
-    
-    This will also delete associated yarn usage records.
-    Note: Stash is NOT restored - yarn that was used remains used.
-    """
-    success = ProjectService.delete_project(db=db, project_id=project_id)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a project (owner only)."""
+    success = ProjectService.delete_project(db=db, project_id=project_id, user_id=current_user.id)
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")

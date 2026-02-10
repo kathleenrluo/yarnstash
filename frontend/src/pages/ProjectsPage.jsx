@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getProjects, toggleProjectFavorite, getImageUrl } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { getProjects, getShowcaseProjects, toggleProjectFavorite, getImageUrl } from '../services/api';
 import Card from '../components/common/Card';
 import FavoriteButton from '../components/common/FavoriteButton';
 import Tag from '../components/common/Tag';
@@ -18,13 +19,15 @@ import { formatDateForDisplay, parseDateForSorting } from '../utils/dateParser';
 import { theme } from '../styles/theme';
 import { isDemoMode } from '../config/demoMode';
 
-const ProjectsPage = () => {
+const ProjectsPage = ({ galleryMode = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading: authLoading, login } = useAuth();
   const isClosingRef = useRef(false);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   
@@ -39,8 +42,17 @@ const ProjectsPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
   useEffect(() => {
-    loadProjects();
-  }, []);
+    if (galleryMode) {
+      setNeedsLogin(false);
+      loadProjects();
+    } else if (user) {
+      setNeedsLogin(false);
+      loadProjects();
+    } else if (!authLoading) {
+      setNeedsLogin(true);
+      setLoading(false);
+    }
+  }, [user, authLoading, galleryMode]);
 
   // Check for projectId in location state (from navigation from stash page)
   useEffect(() => {
@@ -70,11 +82,19 @@ const ProjectsPage = () => {
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const data = await getProjects();
+      setNeedsLogin(false);
+      const data = galleryMode ? await getShowcaseProjects() : await getProjects();
       setProjects(data);
       setError(null);
     } catch (err) {
-      setError('Failed to load projects. Make sure the backend is running.');
+      if (!galleryMode && err.response?.status === 401) {
+        setNeedsLogin(true);
+        setError(null);
+      } else {
+        setError(galleryMode
+          ? 'Failed to load gallery projects.'
+          : 'Failed to load projects. Make sure the backend is running.');
+      }
       console.error('Error loading projects:', err);
     } finally {
       setLoading(false);
@@ -249,12 +269,29 @@ const ProjectsPage = () => {
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
-  if (loading) {
+  const isLoading = galleryMode ? loading : (authLoading || (user && loading));
+  if (isLoading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.content}>
+          <h1 style={styles.title}>{galleryMode ? "Kat's Projects" : 'My Projects'}</h1>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!galleryMode && (needsLogin || (!authLoading && !user))) {
     return (
       <div style={styles.container}>
         <div style={styles.content}>
           <h1 style={styles.title}>My Projects</h1>
-          <p>Loading...</p>
+          <div style={styles.signInPrompt}>
+            <p style={styles.signInText}>Sign in to view and manage your projects.</p>
+            <button type="button" onClick={login} style={styles.signInButton}>
+              Sign in with Google
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -275,8 +312,8 @@ const ProjectsPage = () => {
     <div style={styles.container}>
       <div style={styles.content}>
         <div style={styles.header}>
-          <h1 style={styles.title}>My Projects</h1>
-          {!isDemoMode && (
+          <h1 style={styles.title}>{galleryMode ? "Kat's Projects" : 'My Projects'}</h1>
+          {!galleryMode && !isDemoMode && (
             <button 
               style={styles.addButton}
               onClick={() => setShowAddForm(true)}
@@ -434,21 +471,23 @@ const ProjectsPage = () => {
                       <span style={styles.placeholderText}>🧶</span>
                     </div>
                   )}
-                  <div 
-                    style={styles.favoriteButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <FavoriteButton
-                      isFavorite={project.is_favorite}
-                      onClick={() => handleToggleFavorite(project.id, project.is_favorite)}
-                    />
-                  </div>
+                  {!galleryMode && (
+                    <div 
+                      style={styles.favoriteButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <FavoriteButton
+                        isFavorite={project.is_favorite}
+                        onClick={() => handleToggleFavorite(project.id, project.is_favorite)}
+                      />
+                    </div>
+                  )}
                   {project.craft_type && (
                     <div style={styles.craftBadge}>
                       {project.craft_type}
@@ -588,12 +627,10 @@ const ProjectsPage = () => {
         }}
         projectId={selectedProjectId}
         onYarnClick={(yarnId) => {
-          // Navigate to stash page and open yarn detail modal
           setSelectedProjectId(null);
-          navigate('/stash', { state: { yarnId } });
+          navigate(galleryMode ? '/gallery/stash' : '/stash', { state: { yarnId } });
         }}
-        onFavoriteToggle={(projectId, isFavorite) => {
-          // Update projects state when favorite is toggled in modal
+        onFavoriteToggle={galleryMode ? undefined : ((projectId, isFavorite) => {
           setProjects(prevProjects =>
             prevProjects.map(project =>
               project.id === projectId
@@ -601,13 +638,13 @@ const ProjectsPage = () => {
                 : project
             )
           );
-        }}
+        })}
         onUpdate={loadProjects}
-        onDelete={(projectId) => {
-          // Remove deleted project from projects list
+        onDelete={galleryMode ? undefined : ((projectId) => {
           setProjects(prevProjects => prevProjects.filter(p => p.id !== projectId));
           setSelectedProjectId(null);
-        }}
+        })}
+        readOnly={galleryMode}
       />
     </div>
   );
@@ -726,6 +763,27 @@ const styles = {
     backgroundColor: theme.colors.errorBackground,
     borderRadius: theme.borderRadius.md,
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  signInPrompt: {
+    textAlign: 'center',
+    padding: '3rem 2rem',
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  signInText: {
+    margin: '0 0 1.5rem',
+    fontSize: theme.typography.fontSize.lg,
+  },
+  signInButton: {
+    padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+    borderRadius: theme.borderRadius.lg,
+    border: `1px solid ${theme.colors.primary}`,
+    backgroundColor: theme.colors.primary,
+    color: theme.colors.surface,
+    fontWeight: theme.typography.fontWeight.medium,
+    cursor: 'pointer',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: 'inherit',
   },
   emptyState: {
     textAlign: 'center',

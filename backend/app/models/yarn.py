@@ -9,7 +9,7 @@ Key Design Principle:
 - StashEntry = Inventory (how much you actually own)
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -23,17 +23,22 @@ class Yarn(Base):
     - Keep track of yarns you've used before
     - Reference yarns in past projects
     - Re-add yarns to stash later without re-entering all metadata
+    
+    Each yarn belongs to one user (user_id). Data is private per user.
     """
     
     __tablename__ = "yarns"
     
-    # Unique constraint: prevent duplicate yarns (same brand, name, and color)
+    # Unique per user: same brand/name/color can exist for different users
     __table_args__ = (
-        UniqueConstraint('brand_name', 'yarn_name', 'color_name', name='uq_yarn_brand_name_color'),
+        UniqueConstraint('user_id', 'brand_name', 'yarn_name', 'color_name', name='uq_yarn_user_brand_name_color'),
     )
     
     # Primary key
     id = Column(Integer, primary_key=True, index=True)
+    
+    # Owner: all queries filter by this
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Basic identification
     brand_name = Column(String(100), nullable=False, index=True)

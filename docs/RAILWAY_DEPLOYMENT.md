@@ -23,6 +23,8 @@
 
 **Note:** If Postgres is only exposed on Railway’s private network, use the **private** URL (e.g. `DATABASE_PRIVATE_URL`) so the app service can reach it from inside Railway.
 
+**Staging:** If you have a separate **staging** environment (e.g. a different Railway project or environment), it has its own Postgres and its own `DATABASE_URL`. You must **copy your data into staging Postgres** once: see [Copy data into staging Postgres](#copy-data-into-staging-postgres) below.
+
 ---
 
 ## 2. Auth and other variables
@@ -143,6 +145,26 @@ Your main production URL stays on the current deploy until you merge.
 ### 3. Deploy at a quiet time
 
 If you don’t use previews, deploy when traffic is low and have a rollback ready: keep the previous commit (or a “last known good” tag) so you can revert and redeploy quickly if something breaks.
+
+### Copy data into staging Postgres
+
+Staging uses a **different** Postgres than production. To fill it with your current data (from local SQLite):
+
+1. In Railway, open your **staging** environment and the **PostgreSQL** service there.
+2. Enable **TCP Proxy** on that Postgres (Settings/Connect → enable so you get a public host/port).
+3. Copy the **public** connection URL (e.g. from Variables: `RAILWAY_TCP_PROXY_DOMAIN`, `RAILWAY_TCP_PROXY_PORT`, and the Postgres password).
+4. From your machine, run (replace with your **staging** Postgres URL):
+   ```powershell
+   cd backend
+   python migrations/copy_sqlite_to_postgres.py "postgresql://postgres:YOUR_STAGING_PASSWORD@STAGING_TCP_HOST:STAGING_TCP_PORT/railway"
+   ```
+5. Redeploy the staging app if it’s already running so it picks up the new data.
+
+Full steps (TCP proxy, URL format) are in **`docs/RAILWAY_POSTGRES_LOCAL_COPY.md`**.
+
+### Demo mode (read-only banner)
+
+The “Demo Mode - Read Only” banner is controlled at **build time** by `VITE_DEMO_MODE`. The Dockerfile now defaults to **`false`**, so new builds (including staging) are full app, not demo. To build a read-only demo deploy, set Docker build arg **`VITE_DEMO_MODE=true`** in your Railway service (Settings → Build → Build arguments or similar).
 
 ### Alternative: object storage (S3, R2, etc.)
 

@@ -14,7 +14,10 @@ COPY frontend ./frontend
 WORKDIR /app/frontend
 # Verify public folder exists before build
 RUN ls -la public/ || echo "WARNING: public folder not found"
-RUN VITE_DEMO_MODE=true npm run build
+# Build with demo mode off unless VITE_DEMO_MODE is set (e.g. for a read-only demo deploy)
+ARG VITE_DEMO_MODE=false
+ENV VITE_DEMO_MODE=$VITE_DEMO_MODE
+RUN npm run build
 # Verify files were copied to dist after build
 RUN echo "=== Files in dist after Vite build ===" && \
     ls -la dist/ | head -20 && \
@@ -61,9 +64,8 @@ COPY backend/uploads ./backend/uploads
 # Expose port
 EXPOSE $PORT
 
-# Set environment variables
+# Set environment variables (SERVE_STATIC so we serve the frontend; no DEMO_MODE here—frontend uses build-time VITE_DEMO_MODE)
 ENV SERVE_STATIC=true
-ENV DEMO_MODE=true
 ENV PORT=8000
 
 # Set working directory to backend

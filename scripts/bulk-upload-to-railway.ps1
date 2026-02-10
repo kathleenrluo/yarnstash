@@ -59,16 +59,26 @@ if ($zipNeeded) {
 }
 Write-Host "Uploading to $Url/admin/bulk-upload-uploads ..."
 try {
-    $response = Invoke-RestMethod -Uri "$Url/admin/bulk-upload-uploads" -Method Post `
-        -Headers @{ "X-Bulk-Upload-Secret" = $secret } `
-        -Form @{ file = Get-Item $zipPath -ErrorAction Stop }
-    Write-Host "Done. Extracted: $($response.extracted) files."
+    # Use curl.exe for multipart upload (works on PowerShell 5.x; Invoke-RestMethod -Form needs PS 7+)
+    $curlOut = & curl.exe -s -w "`n%{http_code}" -X POST "$Url/admin/bulk-upload-uploads" `
+        -H "X-Bulk-Upload-Secret: $secret" `
+        -F "file=@$zipPath"
+    $lastLine = $curlOut[-1]
+    $body = $curlOut[0..($curlOut.Count - 2)] -join "`n"
+    if ($lastLine -match '^\d{3}$') {
+        $statusCode = [int]$lastLine
+        if ($statusCode -ge 200 -and $statusCode -lt 300) {
+            $response = $body | ConvertFrom-Json
+            Write-Host "Done. Extracted: $($response.extracted) files."
+        } else {
+            Write-Host "HTTP $statusCode : $body"
+            exit 1
+        }
+    } else {
+        Write-Host $body
+        exit 1
+    }
 } catch {
     Write-Host "Error: $_"
-    if ($_.Exception.Response) {
-        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-        $reader.BaseStream.Position = 0
-        Write-Host $reader.ReadToEnd()
-    }
     exit 1
 }

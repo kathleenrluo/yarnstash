@@ -23,6 +23,8 @@ ENV/
 .env
 .env.local
 envfromrailway
+postgres.env
+backend/postgres.env
 
 # Node
 node_modules/

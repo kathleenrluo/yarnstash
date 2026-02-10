@@ -590,11 +590,13 @@ export const getImageUrl = (path) => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     const isLocalhostUrl = path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0');
     
-    // Stored localhost URLs: in production OR when page is HTTPS, use relative path to avoid mixed content
+    // Stored localhost URLs: use relative path when page is HTTPS or in production build (avoids mixed content / CORS loopback)
     if (isLocalhostUrl && path.includes('/uploads/')) {
       const pathname = extractUploadPath(path);
-      if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location?.protocol === 'https:')) {
-        return pathname; // Same-origin request, no mixed content
+      const isHttpsPage = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+      const isProductionBuild = import.meta.env.PROD === true;
+      if (isProductionBuild || isHttpsPage) {
+        return pathname; // Same-origin request
       }
       return path; // Dev (HTTP page), keep full localhost URL so backend is used
     }

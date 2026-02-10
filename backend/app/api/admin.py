@@ -74,6 +74,32 @@ async def bulk_upload_uploads(
     return {"ok": True, "extracted": count}
 
 
+@router.post("/clear-uploads")
+async def clear_uploads(
+    x_bulk_upload_secret: str | None = Header(default=None, alias="X-Bulk-Upload-Secret"),
+):
+    """
+    Delete all image files in the uploads directory (e.g. to reset volume before re-uploading).
+    Requires header: X-Bulk-Upload-Secret: <BULK_UPLOAD_SECRET>.
+    """
+    _require_secret(x_bulk_upload_secret)
+
+    if not UPLOADS_DIR.exists():
+        return {"ok": True, "deleted": 0}
+
+    deleted = 0
+    for f in UPLOADS_DIR.iterdir():
+        if not f.is_file():
+            continue
+        if f.suffix.lower() in ALLOWED_EXTENSIONS:
+            try:
+                f.unlink()
+                deleted += 1
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to delete {f.name}: {e}")
+    return {"ok": True, "deleted": deleted}
+
+
 @router.get("/export-uploads")
 async def export_uploads(
     x_bulk_upload_secret: str | None = Header(default=None, alias="X-Bulk-Upload-Secret"),

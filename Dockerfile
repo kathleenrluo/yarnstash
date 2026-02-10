@@ -55,11 +55,8 @@ RUN cp -r /app/frontend/public_temp/* /app/frontend/dist/ 2>/dev/null || true &&
 # Copy frontend public assets (carousel images, about-me photo, etc.)
 COPY frontend/public ./frontend/public
 
-# Copy database (same file for both local and demo)
-COPY backend/yarn_stash.db ./backend/
-
-# Copy uploads directory (images)
-COPY backend/uploads ./backend/uploads
+# Uploads dir (gitignored; use volume or bulk-upload to populate at deploy time)
+RUN mkdir -p ./backend/uploads
 
 # Expose port
 EXPOSE $PORT

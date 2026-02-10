@@ -571,45 +571,38 @@ export const uploadImages = async (files) => {
 
 /**
  * Get full URL for an uploaded image
- * Handles both local uploads (/uploads/...) and external URLs
+ * Handles both local uploads (/uploads/...) and external URLs.
+ * Converts stored localhost URLs to relative path when page is HTTPS (avoids mixed content).
  */
+function extractUploadPath(fullUrl) {
+  try {
+    return new URL(fullUrl).pathname;
+  } catch {
+    const match = fullUrl.match(/\/uploads\/[^/\s]+/);
+    return match ? match[0] : fullUrl;
+  }
+}
+
 export const getImageUrl = (path) => {
   if (!path) return null;
   
   // If it's already a full URL
   if (path.startsWith('http://') || path.startsWith('https://')) {
-    // In development, keep localhost URLs as-is (frontend and backend on different ports)
-    if (import.meta.env.DEV) {
-      if (path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0')) {
-        return path; // Keep full localhost URL in development
+    const isLocalhostUrl = path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0');
+    
+    // Stored localhost URLs: in production OR when page is HTTPS, use relative path to avoid mixed content
+    if (isLocalhostUrl && path.includes('/uploads/')) {
+      const pathname = extractUploadPath(path);
+      if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location?.protocol === 'https:')) {
+        return pathname; // Same-origin request, no mixed content
       }
+      return path; // Dev (HTTP page), keep full localhost URL so backend is used
     }
     
-    // In production, convert localhost URLs to relative paths
-    if (import.meta.env.PROD) {
-      if (path.includes('localhost') || path.includes('127.0.0.1') || path.includes('0.0.0.0')) {
-        // Extract the path part (e.g., /uploads/filename.jpg)
-        try {
-          const url = new URL(path);
-          return url.pathname; // Returns /uploads/filename.jpg
-        } catch (e) {
-          // If URL parsing fails, try to extract path manually
-          const match = path.match(/\/uploads\/[^\/\s]+/);
-          if (match) {
-            return match[0];
-          }
-          return path;
-        }
-      }
-      
-      // Block HTTP URLs from non-localhost sources in production
-      if (path.startsWith('http://')) {
-        // Convert HTTP to relative path if it looks like an upload
-        const match = path.match(/\/uploads\/[^\/\s]+/);
-        if (match) {
-          return match[0];
-        }
-      }
+    // In production, downgrade other HTTP URLs that look like uploads to relative path
+    if (import.meta.env.PROD && path.startsWith('http://')) {
+      const match = path.match(/\/uploads\/[^/\s]+/);
+      if (match) return match[0];
     }
     
     // Return HTTPS URLs as-is (external URLs)

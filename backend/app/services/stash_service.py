@@ -9,11 +9,27 @@ Key Design Principle:
 - No direct mutation of stash quantities allowed elsewhere
 """
 
+import json
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Any, List
 from app.models.stash import StashEntry
 from app.models.yarn import Yarn
 from app.services.yarn_service import YarnService
+
+
+def _json_to_list(value: Any) -> List:
+    """Normalize JSON column from SQLite (may be str) or Postgres (list) to list."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+    return []
 
 
 class StashService:
@@ -222,10 +238,10 @@ class StashService:
                     "yarn_weight": yarn.yarn_weight,
                     "grams_per_skein": yarn.grams_per_skein,
                     "meters_per_skein": yarn.meters_per_skein,
-                    "generalized_colors": yarn.generalized_colors or [],
+                    "generalized_colors": _json_to_list(yarn.generalized_colors),
                     "material_breakdown": yarn.material_breakdown,
-                    "materials": yarn.materials or [],
-                    "care_instruction_ids": yarn.care_instruction_ids or [],
+                    "materials": _json_to_list(yarn.materials),
+                    "care_instruction_ids": _json_to_list(yarn.care_instruction_ids),
                     "yarn_photo_url": yarn.yarn_photo_url,
                     "label_photo_url": yarn.label_photo_url,
                     "is_favorite": bool(yarn.is_favorite),

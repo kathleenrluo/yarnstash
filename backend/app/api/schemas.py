@@ -7,9 +7,33 @@ They provide automatic validation and serialization.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-from typing import Optional, List
+import json
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Any
 from datetime import datetime
+
+
+def _ensure_list(value: Any) -> Optional[List]:
+    """Normalize JSON column from SQLite (may be str) or Postgres (list) to list."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+    return []
+
+
+def _ensure_int_list(value: Any) -> Optional[List[int]]:
+    """Normalize JSON column to list of ints (e.g. manual_care_instruction_ids, care_instruction_ids)."""
+    raw = _ensure_list(value)
+    if raw is None:
+        return None
+    return [int(x) for x in raw if isinstance(x, (int, float)) or (isinstance(x, str) and x.isdigit())]
 
 
 # ==================== Yarn Schemas ====================
@@ -60,7 +84,17 @@ class YarnResponse(YarnBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
+    @field_validator("generalized_colors", "materials", mode="before")
+    @classmethod
+    def coerce_str_to_list(cls, v: Any) -> Optional[List]:
+        return _ensure_list(v) if v is not None else None
+
+    @field_validator("care_instruction_ids", mode="before")
+    @classmethod
+    def coerce_care_ids(cls, v: Any) -> Optional[List[int]]:
+        return _ensure_int_list(v) if v is not None else None
+
     class Config:
         from_attributes = True  # Allows conversion from SQLAlchemy models
 
@@ -154,7 +188,7 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectResponse(ProjectBase):
-    """Schema for project response."""
+    """Schema for project response. Coerces JSON columns from SQLite (str) to list."""
     id: int
     date_completed: Optional[str] = Field(None, description="Date completed - can be null, year (e.g., '2024'), month+year (e.g., '2024-03' or 'March 2024'), or full date (e.g., '2024-03-15')")
     computed_care_instruction: Optional[str] = None
@@ -166,7 +200,17 @@ class ProjectResponse(ProjectBase):
     video_urls: Optional[List[str]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
+    @field_validator("tags", "image_urls", "video_urls", mode="before")
+    @classmethod
+    def coerce_str_to_list(cls, v: Any) -> Optional[List[str]]:
+        return _ensure_list(v) if v is not None else None
+
+    @field_validator("manual_care_instruction_ids", mode="before")
+    @classmethod
+    def coerce_manual_care_ids(cls, v: Any) -> Optional[List[int]]:
+        return _ensure_int_list(v) if v is not None else None
+
     class Config:
         from_attributes = True
 

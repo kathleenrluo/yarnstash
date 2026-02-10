@@ -5,14 +5,36 @@ Handles all business logic related to projects.
 This includes creating projects, tracking yarn usage, and computing care instructions.
 """
 
+import json
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from app.models.project import Project, ProjectYarnUsage
 from app.models.yarn import Yarn
 from app.services.stash_service import StashService
 from app.services.care_instruction_service import CareInstructionService
 from app.services.file_service import FileService
+
+
+def _json_to_list(value: Any) -> List:
+    """Normalize JSON column from SQLite (may be str) or Postgres (list) to list."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+    return []
+
+
+def _json_to_int_list(value: Any) -> List[int]:
+    """Normalize JSON column to list of ints."""
+    raw = _json_to_list(value)
+    return [int(x) for x in raw if isinstance(x, (int, float)) or (isinstance(x, str) and str(x).isdigit())]
 
 
 class ProjectService:
@@ -147,7 +169,7 @@ class ProjectService:
         
         # Handle image_urls update - delete removed images from filesystem
         if 'image_urls' in kwargs:
-            old_image_urls = project.image_urls or []
+            old_image_urls = _json_to_list(project.image_urls)
             new_image_urls = kwargs.get('image_urls')
             
             # Find images that were removed (only if new_image_urls is not None)
@@ -165,7 +187,7 @@ class ProjectService:
         
         # Handle video_urls update - delete removed videos from filesystem
         if 'video_urls' in kwargs:
-            old_video_urls = project.video_urls or []
+            old_video_urls = _json_to_list(project.video_urls)
             new_video_urls = kwargs.get('video_urls')
             
             # Find videos that were removed (only if new_video_urls is not None)
@@ -211,7 +233,7 @@ class ProjectService:
         if 'manual_care_instruction_ids' not in kwargs:  # Only validate if we're not updating manual care
             usages = db.query(ProjectYarnUsage).filter(ProjectYarnUsage.project_id == project_id).all()
             has_yarn_usage = len(usages) > 0
-            has_manual_care = project.manual_care_instruction_ids and len(project.manual_care_instruction_ids) > 0
+            has_manual_care = len(_json_to_int_list(project.manual_care_instruction_ids)) > 0
             
             if not has_yarn_usage and not has_manual_care:
                 raise ValueError("Care instructions are required when no yarn usage is specified. Please add manual care instructions or attach yarns to the project.")
@@ -329,10 +351,10 @@ class ProjectService:
             return
         
         # If manual care instructions are set, don't recompute
-        if project.manual_care_instruction_ids and len(project.manual_care_instruction_ids) > 0:
-            # Format manual care instructions
+        manual_ids = _json_to_int_list(project.manual_care_instruction_ids)
+        if manual_ids:
             from app.models.care_instructions import format_care_instructions
-            project.computed_care_instruction = format_care_instructions(project.manual_care_instruction_ids)
+            project.computed_care_instruction = format_care_instructions(manual_ids)
             db.commit()
             return
         
@@ -364,18 +386,16 @@ class ProjectService:
             return False
         
         # Delete associated image files
-        if project.image_urls:
-            for url in project.image_urls:
-                filename = FileService.extract_filename_from_url(url)
-                if filename:
-                    FileService.delete_file(filename)
+        for url in _json_to_list(project.image_urls):
+            filename = FileService.extract_filename_from_url(url)
+            if filename:
+                FileService.delete_file(filename)
         
         # Delete associated video files (if any)
-        if project.video_urls:
-            for url in project.video_urls:
-                filename = FileService.extract_filename_from_url(url)
-                if filename:
-                    FileService.delete_file(filename)
+        for url in _json_to_list(project.video_urls):
+            filename = FileService.extract_filename_from_url(url)
+            if filename:
+                FileService.delete_file(filename)
         
         db.delete(project)
         db.commit()
@@ -418,12 +438,12 @@ class ProjectService:
             "pattern_type": project.pattern_type,
             "pattern_reference": project.pattern_reference,
             "computed_care_instruction": project.computed_care_instruction,
-            "manual_care_instruction_ids": project.manual_care_instruction_ids or [],
+            "manual_care_instruction_ids": _json_to_int_list(project.manual_care_instruction_ids),
             "is_favorite": bool(project.is_favorite),
-            "tags": project.tags or [],
-            "image_urls": project.image_urls,
+            "tags": _json_to_list(project.tags),
+            "image_urls": _json_to_list(project.image_urls) or None,
             "primary_image_index": project.primary_image_index if project.primary_image_index is not None else 0,
-            "video_urls": project.video_urls,
+            "video_urls": _json_to_list(project.video_urls) or None,
             "yarns_used": yarn_details,
         }
 
@@ -454,7 +474,7 @@ class ProjectService:
                 "craft_type": project.craft_type,
                 "date_completed": project.date_completed,
                 "is_favorite": bool(project.is_favorite),
-                "tags": project.tags or [],
+                "tags": _json_to_list(project.tags),
             }
             for project in projects
         ]
@@ -478,7 +498,7 @@ class ProjectService:
                 "craft_type": project.craft_type,
                 "date_completed": project.date_completed,
                 "is_favorite": bool(project.is_favorite),
-                "tags": project.tags or [],
+                "tags": _json_to_list(project.tags),
             }
             for project in projects
         ]

@@ -136,13 +136,26 @@ const ProjectsPage = ({ galleryMode = false }) => {
     setSortOrder('desc');
   };
 
+  // Normalize tags to array (API may return array or JSON string depending on DB/driver)
+  const getTagList = (project) => {
+    const t = project?.tags;
+    if (Array.isArray(t)) return t;
+    if (typeof t === 'string') {
+      try {
+        const p = JSON.parse(t);
+        return Array.isArray(p) ? p : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   // Get all unique tags from projects
   const allTags = useMemo(() => {
     const tags = new Set();
     projects.forEach(project => {
-      if (project.tags) {
-        project.tags.forEach(tag => tags.add(tag));
-      }
+      getTagList(project).forEach(tag => tags.add(tag));
     });
     return Array.from(tags).sort();
   }, [projects]);
@@ -163,9 +176,7 @@ const ProjectsPage = ({ galleryMode = false }) => {
 
     // Filter by tag
     if (filterTag) {
-      filtered = filtered.filter(project => 
-        project.tags && project.tags.includes(filterTag)
-      );
+      filtered = filtered.filter(project => getTagList(project).includes(filterTag));
     }
 
     // Search across multiple fields
@@ -179,7 +190,7 @@ const ProjectsPage = ({ galleryMode = false }) => {
         // Search in notes
         if (project.notes?.toLowerCase().includes(searchLower)) return true;
         // Search in tags
-        if (project.tags && project.tags.some(tag => tag.toLowerCase().includes(searchLower))) return true;
+        if (getTagList(project).some(tag => tag.toLowerCase().includes(searchLower))) return true;
         // Search in craft type
         if (project.craft_type?.toLowerCase().includes(searchLower)) return true;
         // Search in pattern type
@@ -503,13 +514,17 @@ const ProjectsPage = ({ galleryMode = false }) => {
                     <p style={styles.description}>{project.description}</p>
                   )}
                   
-                  {project.tags && project.tags.length > 0 && (
-                    <div style={styles.tagsContainer}>
-                      {project.tags.map((tag, index) => (
-                        <Tag key={index} label={tag} />
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const tagList = getTagList(project);
+                    if (tagList.length === 0) return null;
+                    return (
+                      <div style={styles.tagsContainer}>
+                        {tagList.map((tag, index) => (
+                          <Tag key={index} label={tag} />
+                        ))}
+                      </div>
+                    );
+                  })()}
                   
                   <div style={styles.details}>
                     <div style={styles.dateCompleted}>

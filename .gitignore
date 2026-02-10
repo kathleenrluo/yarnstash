@@ -53,7 +53,6 @@ backend/backups/
 *.db.backup
 *_backup_*.db
 
-# Uploads (user-uploaded images)
-# Note: Uploads are tracked on demo branch, but main branch only has .gitkeep
-# backend/uploads/*
-# !backend/uploads/.gitkeep
+# Uploads (user-uploaded images; use volume/bulk-upload on deploy)
+backend/uploads/*
+!backend/uploads/.gitkeep

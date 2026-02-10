@@ -1,11 +1,13 @@
-# One-time: upload backend/uploads as zip to Railway volume.
+# One-time: upload backend/uploads to Railway volume (in batches of 10 to avoid timeouts).
 # Usage: .\scripts\bulk-upload-to-railway.ps1 "https://YOUR-APP.up.railway.app"
 # Or set env: $env:RAILWAY_APP_URL = "https://..."; .\scripts\bulk-upload-to-railway.ps1
 # Requires BULK_UPLOAD_SECRET in backend\.env (and in Railway variables).
 
 param(
     [Parameter(Mandatory = $false)]
-    [string]$Url = $env:RAILWAY_APP_URL
+    [string]$Url = $env:RAILWAY_APP_URL,
+    [Parameter(Mandatory = $false)]
+    [int]$BatchSize = 10
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,7 +15,6 @@ $root = Split-Path $PSScriptRoot -Parent
 if (-not $root) { $root = (Get-Location).Path }
 $backendEnv = Join-Path $root "backend\.env"
 $uploadsDir = Join-Path $root "backend\uploads"
-$zipPath = Join-Path $root "uploads.zip"
 
 if (-not $Url) {
     Write-Host "Set your Railway app URL and run again:"
@@ -45,40 +46,50 @@ if (-not (Test-Path $uploadsDir)) {
     exit 1
 }
 
-# Create zip if not present or if uploads are newer
-$zipNeeded = -not (Test-Path $zipPath)
-if ((Test-Path $zipPath)) {
-    $zipTime = (Get-Item $zipPath).LastWriteTimeUtc
-    $newer = Get-ChildItem $uploadsDir -File -Recurse | Where-Object { $_.LastWriteTimeUtc -gt $zipTime }
-    if ($newer) { $zipNeeded = $true }
+$allowedExt = @('.jpg','.jpeg','.png','.gif','.webp')
+$allFiles = @(Get-ChildItem -Path $uploadsDir -File | Where-Object { $allowedExt -contains $_.Extension.ToLowerInvariant() })
+if ($allFiles.Count -eq 0) {
+    Write-Host "No image files in backend\uploads"
+    exit 0
 }
-if ($zipNeeded) {
-    Write-Host "Creating uploads.zip from backend\uploads ..."
-    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-    Compress-Archive -Path (Join-Path $uploadsDir "*") -DestinationPath $zipPath -Force
-}
-Write-Host "Uploading to $Url/admin/bulk-upload-uploads ..."
-try {
-    # Use curl.exe for multipart upload (works on PowerShell 5.x; Invoke-RestMethod -Form needs PS 7+)
-    $curlOut = & curl.exe -s -w "`n%{http_code}" -X POST "$Url/admin/bulk-upload-uploads" `
-        -H "X-Bulk-Upload-Secret: $secret" `
-        -F "file=@$zipPath"
-    $lastLine = $curlOut[-1]
-    $body = $curlOut[0..($curlOut.Count - 2)] -join "`n"
-    if ($lastLine -match '^\d{3}$') {
-        $statusCode = [int]$lastLine
-        if ($statusCode -ge 200 -and $statusCode -lt 300) {
-            $response = $body | ConvertFrom-Json
-            Write-Host "Done. Extracted: $($response.extracted) files."
+
+$totalUploaded = 0
+$batchNum = 0
+$numBatches = [Math]::Ceiling($allFiles.Count / $BatchSize)
+
+for ($i = 0; $i -lt $allFiles.Count; $i += $BatchSize) {
+    $batchNum++
+    $batch = $allFiles[$i..([Math]::Min($i + $BatchSize - 1, $allFiles.Count - 1))]
+    $batchZip = Join-Path $root "uploads_batch_$batchNum.zip"
+    try {
+        Remove-Item $batchZip -Force -ErrorAction SilentlyContinue
+        Compress-Archive -Path $batch.FullName -DestinationPath $batchZip -Force
+        Write-Host "Uploading batch $batchNum of $numBatches ($($batch.Count) files)..."
+        $curlOut = & curl.exe -s -w "`n%{http_code}" -X POST "$Url/admin/bulk-upload-uploads" `
+            -H "X-Bulk-Upload-Secret: $secret" `
+            -F "file=@$batchZip" `
+            --max-time 120
+        $lastLine = $curlOut[-1]
+        $body = $curlOut[0..($curlOut.Count - 2)] -join "`n"
+        if ($lastLine -match '^\d{3}$') {
+            $statusCode = [int]$lastLine
+            if ($statusCode -ge 200 -and $statusCode -lt 300) {
+                $response = $body | ConvertFrom-Json
+                $totalUploaded += $response.extracted
+                Write-Host "  OK. Extracted: $($response.extracted). Total so far: $totalUploaded"
+            } else {
+                Write-Host "  HTTP $statusCode : $body"
+                Remove-Item $batchZip -Force -ErrorAction SilentlyContinue
+                exit 1
+            }
         } else {
-            Write-Host "HTTP $statusCode : $body"
+            Write-Host "  Response: $body"
+            Remove-Item $batchZip -Force -ErrorAction SilentlyContinue
             exit 1
         }
-    } else {
-        Write-Host $body
-        exit 1
+    } finally {
+        Remove-Item $batchZip -Force -ErrorAction SilentlyContinue
     }
-} catch {
-    Write-Host "Error: $_"
-    exit 1
 }
+
+Write-Host "Done. Total files uploaded: $totalUploaded"

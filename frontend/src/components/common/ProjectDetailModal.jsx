@@ -1024,7 +1024,7 @@ const ProjectDetailModal = ({ isOpen, onClose, projectId, onYarnClick, onFavorit
                             onClick={() => handleSetPrimaryImage(index, true)}
                             title="Click to set as primary"
                           >
-                            <img src={url} alt={`Existing ${index + 1}`} style={styles.previewImage} />
+                            <img src={getImageUrl(url)} alt={`Existing ${index + 1}`} style={styles.previewImage} />
                             {primaryImageIndex === index && (
                               <div style={styles.primaryBadge}>Primary</div>
                             )}
